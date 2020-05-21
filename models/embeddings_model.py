@@ -12,7 +12,7 @@ for each sentence and saves it in a file
 import pandas as pd
 import torch
 from transformers import XLNetTokenizer, XLNetModel, BertTokenizer, BertModel
-
+import os
 
 # needs to be run only once in the beginning
 
@@ -175,7 +175,10 @@ def get_embeddings(file_name, model_name):
 
     # save embeddings
     import json
-    file_name = 'data/' + model_name + '_embeddings.json'
+    output_folder = 'output/embeddings/'
+    file_name = output_folder + model_name + '_embeddings.json'
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
     with open(file_name, 'w') as fp:
         json.dump(sentence_embedding, fp)
 

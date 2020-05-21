@@ -9,11 +9,11 @@ class model(nn.Module):
     architecture simplified for only one hidden layer
     """
 
-    def __init__(self, latent_dim=32):
+    def __init__(self, latent_dim, input_dim):
         super(model, self).__init__()
 
         # encoder
-        self.enc1 = nn.Linear(in_features=1027, out_features=784)
+        self.enc1 = nn.Linear(in_features=input_dim, out_features=784)
         self.enc2 = nn.Linear(in_features=784, out_features=256)
         self.enc3 = nn.Linear(in_features=256, out_features=128)
         self.enc4 = nn.Linear(in_features=128, out_features=64)
@@ -25,7 +25,7 @@ class model(nn.Module):
         self.dec2 = nn.Linear(in_features=64, out_features=128)
         self.dec3 = nn.Linear(in_features=128, out_features=256)
         self.dec4 = nn.Linear(in_features=256, out_features=784)
-        self.dec5 = nn.Linear(in_features=784, out_features=1027)
+        self.dec5 = nn.Linear(in_features=784, out_features=input_dim)
 
     def forward(self, x):
         x = F.relu(self.enc1(x))
@@ -46,16 +46,10 @@ class model(nn.Module):
 
             x = torch.tensor(x)
 
-            # x = torch.autograd.Variable(x)
-
             x = F.relu(self.enc1(x.float()))
-
             x = F.relu(self.enc2(x))
-
             x = F.relu(self.enc3(x))
-
             x = F.relu(self.enc4(x))
-
             x = F.relu(self.enc5(x))
 
         return x
