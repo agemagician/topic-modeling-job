@@ -113,7 +113,7 @@ def pad_sequences(data, max_length, pad_id):
     return data_paded
 
 
-def generate_embedding(pd_dataframe, model_name):
+def generate_embedding(paragraphs, model_name):
     '''
     Takes in a pandas dataframe and generates embeddings for the text column
     - Inputs:
@@ -125,7 +125,7 @@ def generate_embedding(pd_dataframe, model_name):
 
     '''
     # Convert inputs to PyTorch tensors
-    tokens_tensor = torch.tensor([pd_dataframe['paragraph']]).squeeze()
+    tokens_tensor = torch.tensor([paragraphs]).squeeze()
 
     if model_name == 'bert':
         # Load pre-trained bert model (weights)
@@ -152,7 +152,7 @@ def generate_embedding(pd_dataframe, model_name):
     return (sentence_embedding)
 
 
-def get_embeddings(file_name, model_name):
+def get_embeddings(model_name, file_name =None, sentences= None):
     '''
     wrapper functions which generates the the embeddings for the text in input file and saves in a json file
     - Inputs:
@@ -164,14 +164,23 @@ def get_embeddings(file_name, model_name):
 
     '''
 
-    # Read file
-    pd_data = read_file(file_name)
+
+    # Read file if file path is provided
+    if file_name is not None:
+        pd_data = read_file(file_name)
+    elif sentences is not None:
+        pd_data = pd.DataFrame()
+        pd_data['paragraph'] = sentences
+    else:
+        print ('Either a file name or a list of sentences must be provided')
+        return
+
 
     # do preprocessing on text
     pd_data['paragraph'] = preprocess(pd_data['paragraph'], model_name)
 
     # generate embeddings
-    sentence_embedding = generate_embedding(pd_data, model_name).tolist()
+    sentence_embedding = generate_embedding(pd_data['paragraph'], model_name).tolist()
 
     # save embeddings
     import json

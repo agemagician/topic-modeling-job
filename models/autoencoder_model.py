@@ -54,3 +54,39 @@ class model(nn.Module):
 
         return x
 
+
+class Autoencoder():
+    def __init__(self, latent_dim=32, epochs=10, batch_size=2, input_dim=1026):
+        self.history = []
+        self.model = model(latent_dim, input_dim)
+        self.num_epochs = epochs
+
+    def fit(self, X):
+
+        learning_rate = 1e-3
+        criterion = nn.MSELoss()
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate, weight_decay=1e-5)
+
+        train_loss = []
+
+        for epoch in range(self.num_epochs):
+
+            for data in X:
+                d = torch.tensor(data)
+                d = torch.autograd.Variable(d)
+                d = d.unsqueeze(0)
+
+                # forward pass
+                output = self.model(d.float())
+                loss = criterion(output, d.float())
+
+                # backward pass
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+            # log
+            loss = loss.item()
+            train_loss.append(loss)
+            print('Epoch {} of {}, Train Loss: {:.3f}'.format(epoch + 1, self.num_epochs, loss))
+

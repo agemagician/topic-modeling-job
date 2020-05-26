@@ -2,8 +2,10 @@ import re
 import nltk
 from nltk.stem.porter import PorterStemmer
 from stop_words import get_stop_words
+from nltk.tokenize import word_tokenize
+import pandas as pd
 # sentence level cleaning
-def sentence_clean(s):
+def preprocess_sent(s):
     """
     :param s: string to be processed
     :return: processed string: see comments in the source code for more info
@@ -35,9 +37,9 @@ def sentence_clean(s):
 
     return s.strip()
 
-###############################
-#### word level preprocess ####
-###############################
+
+## word level preprocess
+
 
 # filtering out punctuations and numbers
 def f_punct(w_list):
@@ -77,3 +79,55 @@ def f_stopw(w_list):
     ))
     return [word for word in w_list if word not in stop_words]
 
+# wrapper function around all word level proprocessing utilities
+def preprocess_word(s):
+    """
+    Get word level preprocessed data from preprocessed sentences
+    including: remove punctuation, select noun, stem, stop_words
+    :param s: sentence to be processed
+    :return: word level pre-processed list
+    """
+    w_list = word_tokenize(s)
+    w_list = f_punct(w_list)
+    w_list = f_noun(w_list)
+    w_list = f_stem(w_list)
+    w_list = f_stopw(w_list)
+
+    return w_list
+
+
+# wrapper function to preprocess all the sentences in a document
+def preprocess_documents(file=None, verbose = True):
+    """
+    Read the file and preprocess the data
+
+    file(str): path to the input file
+    """
+
+    if file is None:
+        print ('Please provide a valid file path')
+        return
+
+    print('Reading the file')
+    documents = pd.read_csv(file)
+    docs = documents.paragraph
+    n_docs = len(docs)
+
+    print('Preprocessing raw texts \n' )
+
+    sentences = []  # sentence level preprocessed
+    token_lists = []  # word level preprocessed
+
+    for idx in range(n_docs):
+        sentence = preprocess_sent(docs[idx])
+        token_list = preprocess_word(sentence)
+        if verbose:
+            print ('\n')
+            print (sentence)
+            print ("Candidate Tokens: ", token_list)
+
+        sentences.append(sentence)
+        token_lists.append(token_list)
+
+    print('\n Preprocessing raw texts. Done!')
+    return sentences, token_lists

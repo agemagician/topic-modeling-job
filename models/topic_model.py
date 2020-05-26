@@ -1,0 +1,150 @@
+# Importing the required python modules
+from models.embeddings_model import get_embeddings
+from models.autoencoder_model import Autoencoder
+
+
+from datetime import datetime
+import gensim
+from gensim import corpora, models
+from sklearn.cluster import KMeans
+import numpy as np
+
+from torch import *
+class Topic_Model:
+    def __init__(self, k=3, verbose= False):
+        """
+        :param k: number of topics
+        """
+        self.verbose = verbose
+        self.k = k
+        self.dictionary = None
+        self.corpus = None
+        self.cluster_model = None
+        self.ldamodel = None
+        self.vec = {}
+        self.gamma = 15  # parameter for reletive importance of lda
+        self.method = "LDA_BERT"
+        self.AE = None
+        self.id = self.method + '_' + datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+        self.top_topics = None
+
+    def vectorize(self, sentences, token_lists, method=None):
+        """
+        Get vector representations from selected methods
+        """
+
+        if method == 'LDA':
+
+            print('Getting vector representations for LDA ')
+
+            # turn tokenized documents into a id <-> term dictionary
+            self.dictionary = corpora.Dictionary(token_lists)
+            if self.verbose:
+                print ("Dictionary used for LDA \n" )
+                for key, value in  self.dictionary.items():
+                    print (key, value)
+            # convert tokenized documents into a document-term matrix
+            self.corpus = [self.dictionary.doc2bow(text) for text in token_lists]
+            if self.verbose:
+                print ("\n Corpus used for LDA \n" )
+                for c in self.corpus:
+                    print (c)
+
+            self.ldamodel = gensim.models.ldamodel.LdaModel(self.corpus, num_topics=self.k, id2word=self.dictionary,
+                                                                passes=20)
+
+            def get_vec_lda(model, corpus, k):
+                """
+                Get the LDA vector representation (probabilistic topic assignments for all documents)
+                :return: vec_lda with dimension: (n_doc * n_topic)
+                """
+                n_doc = len(corpus)
+                vec_lda = np.zeros((n_doc, k))
+                for i in range(n_doc):
+                    # get the distribution for the i-th document in corpus
+                    for topic, prob in model.get_document_topics(corpus[i]):
+                        vec_lda[i, topic] = prob
+
+                return vec_lda
+
+            vec = get_vec_lda(self.ldamodel, self.corpus, self.k)
+            if self.verbose:
+                print ("\n \n Shape of LDA Vector: ", vec.shape)
+                print (vec)
+                print ('\n According to LDA, the top words for each topic should be, ')
+                print (self.get_top_words_lda(6))
+            print('Getting vector representations for LDA. Done! \n')
+            return vec
+
+        elif method == 'BERT':
+
+            print('\n Getting vector representations for BERT ')
+
+            bert_sentence_embedding = get_embeddings('bert', sentences=sentences)
+            vec = np.array(bert_sentence_embedding)
+
+            return vec
+
+        elif method == 'LDA_BERT':
+
+            # Get probability of a text belonging to a class from LDA
+            vec_lda = self.vectorize(sentences, token_lists, method='LDA')
+
+            # Get sentence level embedding from Bert
+            vec_bert = self.vectorize(sentences, token_lists, method='BERT')
+
+            # Concatenat them
+            vec_ldabert = np.c_[vec_lda * self.gamma, vec_bert]
+            self.vec['LDA_BERT'] = vec_ldabert
+
+            if self.verbose:
+                print ("\n Concatenating both LDA(topic distribution per topic) and Bert(sentence embeddings) vectors gives a new vector of shape ", vec_ldabert.shape, "\n")
+
+            if not self.AE:
+                # Learn the latent representation of data
+                input_size = vec_lda.shape[1] + vec_bert.shape[1]
+                self.AE = Autoencoder(latent_dim=32, input_dim=input_size)
+
+                if self.verbose:
+                    print ("Using the following autoencoder to learn the latent representation of the vector")
+
+                print('Fitting Autoencoder')
+                self.AE.fit(vec_ldabert)
+                print('Fitting Autoencoder Done!')
+
+            vec = self.AE.model.predict(vec_ldabert)
+            if self.verbose:
+                print ('Latent Representation size: ', np.array(vec).shape)
+            return vec
+
+    def fit(self, sentences, token_lists):
+        """
+        Fit the topic model for selected method given the preprocessed data
+
+        :return:
+        """
+
+        # use kmeans clustering to cluster the latent representations
+        m_clustering = KMeans
+        self.cluster_model = m_clustering(self.k)
+
+
+
+        self.vec[self.method] = self.vectorize(sentences, token_lists, self.method)
+        print('Clustering the latent representations')
+        self.cluster_model.fit(self.vec[self.method])
+
+        print('Clustering. Done!')
+
+    def get_top_words_lda(self, top=5):
+
+        if not self.ldamodel:
+            print("LDA model has not been trained yet")
+            return None
+
+        self.top_topics = dict()
+
+        for k in range(self.k):
+            topics = self.ldamodel.show_topic(topicid=k, topn=top)
+            self.top_topics[k] = topics
+        return self.top_topics
