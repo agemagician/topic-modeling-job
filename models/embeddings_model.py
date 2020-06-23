@@ -13,27 +13,13 @@ import pandas as pd
 import torch
 from transformers import XLNetTokenizer, XLNetModel, BertTokenizer, BertModel
 import os
+from utilities.document_preprocessing import preprocess_documents
 
 # needs to be run only once in the beginning
 
 # nltk.download('punkt')
 
 ### Function Definations
-
-def read_file(file_name):
-    '''
-    This function reads the file and returns it's content in a pandas framework
-
-    - Inputs:
-        file_name (str): path to the file to be read
-
-    - Output:
-        data (pandas framework): pandas framework containing the data
-
-    '''
-    data = pd.read_csv(file_name, sep=',')
-    return data
-
 
 def preprocess(text_column, model_name=None):
     '''
@@ -87,6 +73,9 @@ def preprocess(text_column, model_name=None):
         # keeping track of the maximum sequence length
         max_length = len(tokenized_text) if len(tokenized_text) > max_length else max_length
 
+        # for bert limiting the maximum length to 512.
+        #max_length = 512
+
     # pad the sequence to allow batch processing
     preprocessed_indexes_column = pad_sequences(preprocessed_indexes_column, max_length, pad_id)
     return preprocessed_indexes_column
@@ -103,6 +92,7 @@ def pad_sequences(data, max_length, pad_id):
         preprocessed_indexes_column (list): a list of all text tokenized, encoded and padded.
 
     '''
+
     data_paded = []
     for d in data:
         if len(d) < max_length:
@@ -113,7 +103,7 @@ def pad_sequences(data, max_length, pad_id):
     return data_paded
 
 
-def generate_embedding(paragraphs, model_name):
+def generate_embedding(objectives, model_name):
     '''
     Takes in a pandas dataframe and generates embeddings for the text column
     - Inputs:
@@ -125,7 +115,7 @@ def generate_embedding(paragraphs, model_name):
 
     '''
     # Convert inputs to PyTorch tensors
-    tokens_tensor = torch.tensor([paragraphs]).squeeze()
+    tokens_tensor = torch.tensor([objectives]).squeeze()
 
     if model_name == 'bert':
         # Load pre-trained bert model (weights)
@@ -164,23 +154,22 @@ def get_embeddings(model_name, file_name =None, sentences= None):
 
     '''
 
-
-    # Read file if file path is provided
-    if file_name is not None:
-        pd_data = read_file(file_name)
-    elif sentences is not None:
-        pd_data = pd.DataFrame()
-        pd_data['paragraph'] = sentences
-    else:
+    if file_name is None and sentences is None:
         print ('Either a file name or a list of sentences must be provided')
         return
 
+    pd_objectives = pd.DataFrame()
+    # Read file if file path is provided, read the data from there and preprocess it using the pre-defined utility function
+    if file_name is not None:
+        sentences, _ = preprocess_documents(file=file_name, verbose=False)
 
-    # do preprocessing on text
-    pd_data['paragraph'] = preprocess(pd_data['paragraph'], model_name)
+    pd_objectives['objectives'] = sentences
+
+    # do model specific preprocessing for embedding generation
+    pd_objectives['objectives'] = preprocess(pd_objectives['objectives'], model_name)
 
     # generate embeddings
-    sentence_embedding = generate_embedding(pd_data['paragraph'], model_name).tolist()
+    sentence_embedding = generate_embedding(pd_objectives['objectives'], model_name).tolist()
 
     # save embeddings
     import json
@@ -192,3 +181,5 @@ def get_embeddings(model_name, file_name =None, sentences= None):
         json.dump(sentence_embedding, fp)
 
     return sentence_embedding
+
+#get_embeddings("bert", "../data/PMP_Skills_Matching_Pilot_2018_2019_small.xlsx")

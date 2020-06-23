@@ -4,12 +4,20 @@ from nltk.stem.porter import PorterStemmer
 from stop_words import get_stop_words
 from nltk.tokenize import word_tokenize
 import pandas as pd
+import numpy as np
+from langdetect import detect
+
+#downloads
+#nltk.download('crubadan')
+
 # sentence level cleaning
 def preprocess_sent(s):
     """
     :param s: string to be processed
     :return: processed string: see comments in the source code for more info
     """
+
+
     # normalization 1: xxxThis is a --> xxx. This is a (missing delimiter)
     s = re.sub(r'([a-z])([A-Z])', r'\1\. \2', s)  # before lower case
     # normalization 2: lower case
@@ -34,6 +42,8 @@ def preprocess_sent(s):
     s = re.sub(r'product received for free[.| ]', ' ', s)
     # normalization 12: phrase repetition
     s = re.sub(r'(.{2,}?)\1{1,}', r'\1', s)
+    # remove all special characters
+    s = re.sub('[^A-Za-z0-9]+', ' ', s)
 
     return s.strip()
 
@@ -57,7 +67,6 @@ def f_noun(w_list):
     :return: w_list with only nouns selected
     """
     return [word for (word, pos) in nltk.pos_tag(w_list) if pos[:2] == 'NN']
-
 
 def f_stem(w_list):
     """
@@ -109,8 +118,18 @@ def preprocess_documents(file=None, verbose = True):
         return
 
     print('Reading the file')
-    documents = pd.read_csv(file)
-    docs = documents.paragraph
+
+    documents = pd.read_excel(file)
+
+    # replace nans with empty spaces to avoid trouble in preprocessing
+    documents = documents.replace(np.nan, '', regex=True)
+
+    id = documents['User ID (anonymus)']
+    #docs = documents['Objective_Name'].astype(str) + ' \n ' + documents['Objective_Description'].astype(str) + ' \n ' + \
+    #             documents['Objective_Comment'].astype(str) + ' \n ' + documents['Objective_Metric'].astype(str)
+
+    docs = documents['Objective_Name'].astype(str) + ' \n ' + documents['Objective_Metric'].astype(str)
+
     n_docs = len(docs)
 
     print('Preprocessing raw texts \n' )
@@ -118,16 +137,46 @@ def preprocess_documents(file=None, verbose = True):
     sentences = []  # sentence level preprocessed
     token_lists = []  # word level preprocessed
 
+    id_drop = [] #place holder to save indexes for entries with non-english langauges to be dropped later.
     for idx in range(n_docs):
-        sentence = preprocess_sent(docs[idx])
-        token_list = preprocess_word(sentence)
-        if verbose:
-            print ('\n')
-            print (sentence)
-            print ("Candidate Tokens: ", token_list)
+        text = docs[idx]
 
-        sentences.append(sentence)
-        token_lists.append(token_list)
+        try:
+            detected_language = detect(text)
+
+        except Exception as e:
+            #print (e.msg)
+            print ("Couldn't detect the language of the text on index {}".format(idx))
+            print (text)
+            # donot include undetected languages and drop their ids
+            id_drop.append(idx)
+            continue
+
+        if  detected_language == 'en':
+
+            sentence = preprocess_sent(text)
+            token_list = preprocess_word(sentence)
+            if verbose:
+                print ('\n')
+                print (sentence)
+                print ("Candidate Tokens: ", token_list)
+
+            sentences.append(sentence)
+            token_lists.append(token_list)
+        else:
+            id_drop.append(idx)
+
+    #drop the employee id of the non-english text
+    if verbose:
+        print("Objectives of following employees at the following indices are being dropped: ", id_drop)
+
+
+    id = id.drop([id.index[i] for i in id_drop])
+    print("Dropped {} entries with non english text".format(len(id_drop)))
 
     print('\n Preprocessing raw texts. Done!')
     return sentences, token_lists
+
+
+
+#preprocess_documents("../data/PMP_Skills_Matching_Pilot_2018_2019.xlsx", verbose=False)
