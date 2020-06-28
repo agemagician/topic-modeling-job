@@ -120,11 +120,12 @@ def generate_embedding(objectives, model_name):
     if model_name == 'bert':
         # Load pre-trained bert model (weights)
         model = BertModel.from_pretrained('bert-large-uncased')
+        sentences_per_batch = 1000
+
     elif model_name == 'xlnet':
         # Load pre-trained xlnet model (weights)
         model = XLNetModel.from_pretrained('xlnet-large-cased')
-
-    
+        sentences_per_batch = 400
 
     #setting up the device
     if torch.cuda.is_available():
@@ -139,7 +140,6 @@ def generate_embedding(objectives, model_name):
     model.to(device)
     num_sentences = len(objectives)
     sentence_embedding = []
-    sentences_per_batch = 100
     if num_sentences > sentences_per_batch:
         num_batches = num_sentences//sentences_per_batch
 

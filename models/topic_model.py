@@ -147,7 +147,7 @@ class Topic_Model:
 
         self.vec[self.method] = self.vectorize(sentences, token_lists, self.method)
         print('Clustering the latent representations')
-        self.cluster_model.fit(self.vec[self.method])
+        self.cluster_model.fit(self.vec[self.method].cpu())
 
         print('Clustering. Done!')
 
