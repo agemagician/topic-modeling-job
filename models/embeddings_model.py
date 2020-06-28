@@ -114,8 +114,6 @@ def generate_embedding(objectives, model_name):
         sentence_embedding (tensor): tensor of shape n by 1024 where n is the number of sentence
 
     '''
-    # Convert inputs to PyTorch tensors
-    tokens_tensor = torch.tensor([objectives]).squeeze()
 
     if model_name == 'bert':
         # Load pre-trained bert model (weights)
@@ -127,18 +125,44 @@ def generate_embedding(objectives, model_name):
     # Put the model in "evaluation" mode, meaning feed-forward operation.
     model.eval()
 
-    # Predict hidden states features for each layer
-    with torch.no_grad():
-        encoded_layers = model(tokens_tensor)
 
-    # taking embeddings of the last layer.
-    # token_vecs` is a tensor with shape [n x k x 768]
-    token_vecs = encoded_layers[0]
+    num_sentences = len(objectives)
+    sentence_embedding = []
+    sentences_per_batch = 100
+    if num_sentences > sentences_per_batch:
+        num_batches = num_sentences//sentences_per_batch
 
-    # Calculate the average of all k  token vectors.
-    sentence_embedding = torch.mean(token_vecs, dim=1)
+        for i in range(num_batches):
+            start = i * sentences_per_batch
+            end = (i+1)* sentences_per_batch
+            if i == num_batches-1:
+                end = num_sentences
+            mini_objective = list(objectives[start:end])
+            # Convert inputs to PyTorch tensors
+            tokens_tensor = torch.tensor([mini_objective]).squeeze()
 
-    print("Our final sentence embedding vector of shape:", sentence_embedding.size())
+            # Predict hidden states features for each layer
+            with torch.no_grad():
+                encoded_layers = model(tokens_tensor)
+
+            # taking embeddings of the last layer.
+            # token_vecs` is a tensor with shape [n x k x 768]
+            token_vecs = encoded_layers[0]
+
+            # Calculate the average of all k  token vectors and adding to the main list
+            sentence_embedding += torch.mean(token_vecs, dim=1).tolist()
+    else:
+        # Convert inputs to PyTorch tensors
+        tokens_tensor = torch.tensor([objectives]).squeeze()
+        # Predict hidden states features for each layer
+        with torch.no_grad():
+            encoded_layers = model(tokens_tensor)
+
+        # taking embeddings of the last layer.
+        # token_vecs` is a tensor with shape [n x k x 768]
+        token_vecs = encoded_layers[0]
+        sentence_embedding = torch.mean(token_vecs, dim=1).tolist()
+    print("Our final sentence embedding vector of shape:", len(sentence_embedding))
     return (sentence_embedding)
 
 
@@ -169,7 +193,7 @@ def get_embeddings(model_name, file_name =None, sentences= None):
     pd_objectives['objectives'] = preprocess(pd_objectives['objectives'], model_name)
 
     # generate embeddings
-    sentence_embedding = generate_embedding(pd_objectives['objectives'], model_name).tolist()
+    sentence_embedding = generate_embedding(pd_objectives['objectives'], model_name)
 
     # save embeddings
     import json
