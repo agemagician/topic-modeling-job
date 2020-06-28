@@ -42,9 +42,15 @@ class model(nn.Module):
         return x
 
     def predict(self, x):
+        if torch.cuda.is_available():
+            dev = "cuda:0"
+        else:
+            dev = "cpu"
+        device = torch.device(dev)
         with torch.no_grad():
 
             x = torch.tensor(x)
+            x = x.to(device)
 
             x = F.relu(self.enc1(x.float()))
             x = F.relu(self.enc2(x))
@@ -68,6 +74,14 @@ class Autoencoder():
         optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate, weight_decay=1e-5)
 
         train_loss = []
+        # setting up the device
+        if torch.cuda.is_available():
+            dev = "cuda:0"
+        else:
+            dev = "cpu"
+        device = torch.device(dev)
+        print(device)
+        self.model.to(device)
 
         for epoch in range(self.num_epochs):
 
@@ -75,6 +89,7 @@ class Autoencoder():
                 d = torch.tensor(data)
                 d = torch.autograd.Variable(d)
                 d = d.unsqueeze(0)
+                d = d.to(device)
 
                 # forward pass
                 output = self.model(d.float())

@@ -42,7 +42,7 @@ def get_wordcloud(model, token_lists, topic):
     plt.imshow(wordcloud)
     plt.axis("off")
     plt.tight_layout(pad=0)
-    dr = 'output/{}/{}'.format(model.method, model.id)
+    dr = 'output/{}/{}'.format(model.method , model.id)
     if not os.path.exists(dr):
         os.makedirs(dr)
     plt.savefig('output/{}/{}/'.format(model.method, model.id) + 'Topic' + str(topic) + '_wordcloud')

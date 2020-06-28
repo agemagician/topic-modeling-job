@@ -99,7 +99,7 @@ def preprocess_word(s):
     w_list = word_tokenize(s)
     w_list = f_punct(w_list)
     w_list = f_noun(w_list)
-    w_list = f_stem(w_list)
+    #w_list = f_stem(w_list)
     w_list = f_stopw(w_list)
 
     return w_list
@@ -125,19 +125,20 @@ def preprocess_documents(file=None, verbose = True):
     documents = documents.replace(np.nan, '', regex=True)
 
     id = documents['User ID (anonymus)']
-    #docs = documents['Objective_Name'].astype(str) + ' \n ' + documents['Objective_Description'].astype(str) + ' \n ' + \
-    #             documents['Objective_Comment'].astype(str) + ' \n ' + documents['Objective_Metric'].astype(str)
+    docs = documents['Objective_Name'].astype(str) + ' \n ' + documents['Objective_Description'].astype(str) + ' \n ' + \
+                 documents['Objective_Comment'].astype(str) + ' \n ' + documents['Objective_Metric'].astype(str)
 
-    docs = documents['Objective_Name'].astype(str) + ' \n ' + documents['Objective_Metric'].astype(str)
+    #docs = documents['Objective_Name'].astype(str) + ' \n ' + documents['Objective_Metric'].astype(str)
 
     n_docs = len(docs)
 
     print('Preprocessing raw texts \n' )
 
-    sentences = []  # sentence level preprocessed
+    sentences_list = []  # sentence level preprocessed
     token_lists = []  # word level preprocessed
 
     id_drop = [] #place holder to save indexes for entries with non-english langauges to be dropped later.
+    keep_track_of_id = []
     for idx in range(n_docs):
         text = docs[idx]
 
@@ -154,15 +155,18 @@ def preprocess_documents(file=None, verbose = True):
 
         if  detected_language == 'en':
 
-            sentence = preprocess_sent(text)
-            token_list = preprocess_word(sentence)
-            if verbose:
-                print ('\n')
-                print (sentence)
-                print ("Candidate Tokens: ", token_list)
+            sentences = nltk.sent_tokenize(text)
+            for sentence in sentences:
+                sentence = preprocess_sent(sentence)
+                token_list = preprocess_word(sentence)
+                keep_track_of_id.append(idx)
+                if verbose:
+                    print ('\n')
+                    print (sentence)
+                    print ("Candidate Tokens: ", token_list)
 
-            sentences.append(sentence)
-            token_lists.append(token_list)
+                sentences_list.append(sentence)
+                token_lists.append(token_list)
         else:
             id_drop.append(idx)
 
@@ -175,7 +179,7 @@ def preprocess_documents(file=None, verbose = True):
     print("Dropped {} entries with non english text".format(len(id_drop)))
 
     print('\n Preprocessing raw texts. Done!')
-    return sentences, token_lists
+    return sentences_list, token_lists
 
 
 

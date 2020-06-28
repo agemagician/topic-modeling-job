@@ -11,7 +11,7 @@ import numpy as np
 
 from torch import *
 class Topic_Model:
-    def __init__(self, k=3, verbose= False):
+    def __init__(self, k=3, embedding = None, saved_embedding_dir = None, verbose= False):
         """
         :param k: number of topics
         """
@@ -23,10 +23,17 @@ class Topic_Model:
         self.ldamodel = None
         self.vec = {}
         self.gamma = 15  # parameter for reletive importance of lda
-        self.method = "LDA_BERT"
+        self.embedding = None
+
+        if embedding is None:
+            self.method = "LDA"
+        else:
+            self.method = "LDA_EMBEDDING"
+            self.embedding = embedding
         self.AE = None
-        self.id = self.method + '_' + datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+        self.id = self.method + '_' + self.embedding + '_' + datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         self.top_topics = None
+        self.saved_embedding_dir = saved_embedding_dir
 
     def vectorize(self, sentences, token_lists, method=None):
         """
@@ -76,43 +83,51 @@ class Topic_Model:
             print('Getting vector representations for LDA. Done! \n')
             return vec
 
-        elif method == 'BERT':
+        elif method == 'EMBEDDING':
 
-            print('\n Getting vector representations for BERT ')
+            print('\n Getting vector representations for {} '.format(self.embedding))
 
-            bert_sentence_embedding = get_embeddings('bert', sentences=sentences)
-            vec = np.array(bert_sentence_embedding)
+            if self.saved_embedding_dir is None:
+                sentence_embedding = get_embeddings(self.embedding, sentences=sentences)
+            else:
+                # use previously generated embedding
+                sentence_embedding = get_embeddings(saved_embedding_dir=self.saved_embedding_dir)
+            vec = np.array(sentence_embedding)
 
             return vec
 
-        elif method == 'LDA_BERT':
+        elif method == 'LDA_EMBEDDING':
 
             # Get probability of a text belonging to a class from LDA
             vec_lda = self.vectorize(sentences, token_lists, method='LDA')
 
             # Get sentence level embedding from Bert
-            vec_bert = self.vectorize(sentences, token_lists, method='BERT')
-
+            vec_embedding = self.vectorize(sentences, token_lists, method='EMBEDDING')
+            print (vec_lda.shape)
+            print (vec_embedding.shape)
             # Concatenat them
-            vec_ldabert = np.c_[vec_lda * self.gamma, vec_bert]
-            self.vec['LDA_BERT'] = vec_ldabert
+            vec_lda_embedding = np.c_[vec_lda * self.gamma, vec_embedding]
+            self.vec['LDA_EMBEDDING'] = vec_lda_embedding
 
             if self.verbose:
-                print ("\n Concatenating both LDA(topic distribution per topic) and Bert(sentence embeddings) vectors gives a new vector of shape ", vec_ldabert.shape, "\n")
+                print ("\n Concatenating both LDA(topic distribution per topic) and "
+                       "{}(sentence embeddings) vectors gives a new vector of shape {}"
+                       " \n".format(self.embedding, vec_lda_embedding.shape))
 
             if not self.AE:
+
                 # Learn the latent representation of data
-                input_size = vec_lda.shape[1] + vec_bert.shape[1]
+                input_size = vec_lda.shape[1] + vec_embedding.shape[1]
                 self.AE = Autoencoder(latent_dim=32, input_dim=input_size)
 
                 if self.verbose:
                     print ("Using the following autoencoder to learn the latent representation of the vector")
 
                 print('Fitting Autoencoder')
-                self.AE.fit(vec_ldabert)
+                self.AE.fit(vec_lda_embedding)
                 print('Fitting Autoencoder Done!')
 
-            vec = self.AE.model.predict(vec_ldabert)
+            vec = self.AE.model.predict(vec_lda_embedding)
             if self.verbose:
                 print ('Latent Representation size: ', np.array(vec).shape)
             return vec

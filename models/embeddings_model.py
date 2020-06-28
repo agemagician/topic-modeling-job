@@ -13,6 +13,8 @@ import pandas as pd
 import torch
 from transformers import XLNetTokenizer, XLNetModel, BertTokenizer, BertModel
 import os
+import json
+from datetime import datetime
 from utilities.document_preprocessing import preprocess_documents
 
 # needs to be run only once in the beginning
@@ -122,10 +124,19 @@ def generate_embedding(objectives, model_name):
         # Load pre-trained xlnet model (weights)
         model = XLNetModel.from_pretrained('xlnet-large-cased')
 
+    
+
+    #setting up the device
+    if torch.cuda.is_available():
+        dev = "cuda:0"
+    else:
+        dev = "cpu"
+    device = torch.device(dev)
+    print (device)
+
     # Put the model in "evaluation" mode, meaning feed-forward operation.
     model.eval()
-
-
+    model.to(device)
     num_sentences = len(objectives)
     sentence_embedding = []
     sentences_per_batch = 100
@@ -140,43 +151,53 @@ def generate_embedding(objectives, model_name):
             mini_objective = list(objectives[start:end])
             # Convert inputs to PyTorch tensors
             tokens_tensor = torch.tensor([mini_objective]).squeeze()
+            tokens_tensor = tokens_tensor.to(device)
 
             # Predict hidden states features for each layer
             with torch.no_grad():
                 encoded_layers = model(tokens_tensor)
 
             # taking embeddings of the last layer.
-            # token_vecs` is a tensor with shape [n x k x 768]
+            # token_vecs` is a tensor with shape [n x k x 1024]
             token_vecs = encoded_layers[0]
 
             # Calculate the average of all k  token vectors and adding to the main list
             sentence_embedding += torch.mean(token_vecs, dim=1).tolist()
+            print ("Embedding for batch {} out of {} batches Completed.".format(i, num_batches))
     else:
         # Convert inputs to PyTorch tensors
         tokens_tensor = torch.tensor([objectives]).squeeze()
+        tokens_tensor = tokens_tensor.to(device)
+
         # Predict hidden states features for each layer
         with torch.no_grad():
             encoded_layers = model(tokens_tensor)
 
         # taking embeddings of the last layer.
-        # token_vecs` is a tensor with shape [n x k x 768]
+        # token_vecs` is a tensor with shape [n x k x 1024]
         token_vecs = encoded_layers[0]
         sentence_embedding = torch.mean(token_vecs, dim=1).tolist()
     print("Our final sentence embedding vector of shape:", len(sentence_embedding))
     return (sentence_embedding)
 
 
-def get_embeddings(model_name, file_name =None, sentences= None):
+def get_embeddings(model_name = None, file_name =None, sentences= None, saved_embedding_dir = None):
     '''
     wrapper functions which generates the the embeddings for the text in input file and saves in a json file
     - Inputs:
         file_name (str): string pointing to the file to be read
         model_name (str): name of the model to be used for generating embeddings
+        saved_embedding_dir (str): path to json file, if the precomputed embedding needs to be used.
 
     - Output:
         sentence_embedding (tensor): tensor of shape n by 1024 where n is the number of sentence
 
     '''
+
+    if saved_embedding_dir is not None:
+        with open(saved_embedding_dir) as json_file:
+            sentence_embedding = json.load(json_file)
+            return sentence_embedding
 
     if file_name is None and sentences is None:
         print ('Either a file name or a list of sentences must be provided')
@@ -196,8 +217,8 @@ def get_embeddings(model_name, file_name =None, sentences= None):
     sentence_embedding = generate_embedding(pd_objectives['objectives'], model_name)
 
     # save embeddings
-    import json
-    output_folder = 'output/embeddings/'
+
+    output_folder = 'output/embeddings/' +  str(datetime.now().strftime("%Y_%m_%d_%H_%M_%S") ) + '_'  + model_name + '/'
     file_name = output_folder + model_name + '_embeddings.json'
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
