@@ -105,7 +105,7 @@ def pad_sequences(data, max_length, pad_id):
     return data_paded
 
 
-def generate_embedding(objectives, model_name):
+def generate_embedding(objectives, model_name, batch_size=100):
     '''
     Takes in a pandas dataframe and generates embeddings for the text column
     - Inputs:
@@ -120,12 +120,13 @@ def generate_embedding(objectives, model_name):
     if model_name == 'bert':
         # Load pre-trained bert model (weights)
         model = BertModel.from_pretrained('bert-large-uncased')
-        sentences_per_batch = 1000
-
+        sentences_per_batch = batch_size
     elif model_name == 'xlnet':
         # Load pre-trained xlnet model (weights)
         model = XLNetModel.from_pretrained('xlnet-large-cased')
-        sentences_per_batch = 400
+        sentences_per_batch = batch_size
+
+    
 
     #setting up the device
     if torch.cuda.is_available():
@@ -140,6 +141,7 @@ def generate_embedding(objectives, model_name):
     model.to(device)
     num_sentences = len(objectives)
     sentence_embedding = []
+    
     if num_sentences > sentences_per_batch:
         num_batches = num_sentences//sentences_per_batch
 
@@ -181,7 +183,7 @@ def generate_embedding(objectives, model_name):
     return (sentence_embedding)
 
 
-def get_embeddings(model_name = None, file_name =None, sentences= None, saved_embedding_dir = None):
+def get_embeddings(model_name = None, file_name =None, sentences= None, saved_embedding_dir = None, batch_size = 100):
     '''
     wrapper functions which generates the the embeddings for the text in input file and saves in a json file
     - Inputs:
@@ -214,7 +216,7 @@ def get_embeddings(model_name = None, file_name =None, sentences= None, saved_em
     pd_objectives['objectives'] = preprocess(pd_objectives['objectives'], model_name)
 
     # generate embeddings
-    sentence_embedding = generate_embedding(pd_objectives['objectives'], model_name)
+    sentence_embedding = generate_embedding(pd_objectives['objectives'], model_name, batch_size)
 
     # save embeddings
 
@@ -227,4 +229,4 @@ def get_embeddings(model_name = None, file_name =None, sentences= None, saved_em
 
     return sentence_embedding
 
-#get_embeddings("bert", "../data/PMP_Skills_Matching_Pilot_2018_2019_small.xlsx")
+#get_embeddings("bert", "../data/PMP_Skills_Matching_Pilot_2018_2019_small.xlsx", batch_size = 100)

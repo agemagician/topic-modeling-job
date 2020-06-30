@@ -11,7 +11,7 @@ import numpy as np
 
 from torch import *
 class Topic_Model:
-    def __init__(self, k=3, embedding = None, saved_embedding_dir = None, verbose= False):
+    def __init__(self, k=3, embedding = None, saved_embedding_dir = None, verbose= False, embedding_batch_size=100):
         """
         :param k: number of topics
         """
@@ -27,13 +27,17 @@ class Topic_Model:
 
         if embedding is None:
             self.method = "LDA"
+            self.id = self.method + '_k_' + str(self.k) + '_' + datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         else:
             self.method = "LDA_EMBEDDING"
             self.embedding = embedding
+            self.id = self.method + '_k_' +  str(self.k) + '_' + self.embedding + '_' + datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+        
         self.AE = None
-        self.id = self.method + '_' + self.embedding + '_' + datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+        
         self.top_topics = None
         self.saved_embedding_dir = saved_embedding_dir
+        self.embedding_batch_size = embedding_batch_size
 
     def vectorize(self, sentences, token_lists, method=None):
         """
@@ -81,6 +85,7 @@ class Topic_Model:
                 print ('\n According to LDA, the top words for each topic should be, ')
                 print (self.get_top_words_lda(6))
             print('Getting vector representations for LDA. Done! \n')
+            self.vec["LDA"] = vec
             return vec
 
         elif method == 'EMBEDDING':
@@ -88,7 +93,7 @@ class Topic_Model:
             print('\n Getting vector representations for {} '.format(self.embedding))
 
             if self.saved_embedding_dir is None:
-                sentence_embedding = get_embeddings(self.embedding, sentences=sentences)
+                sentence_embedding = get_embeddings(self.embedding, sentences=sentences, batch_size = self.embedding_batch_size)
             else:
                 # use previously generated embedding
                 sentence_embedding = get_embeddings(saved_embedding_dir=self.saved_embedding_dir)
@@ -118,7 +123,7 @@ class Topic_Model:
 
                 # Learn the latent representation of data
                 input_size = vec_lda.shape[1] + vec_embedding.shape[1]
-                self.AE = Autoencoder(latent_dim=32, input_dim=input_size)
+                self.AE = Autoencoder(latent_dim=32, input_dim=input_size, epochs=5)
 
                 if self.verbose:
                     print ("Using the following autoencoder to learn the latent representation of the vector")
@@ -143,10 +148,12 @@ class Topic_Model:
         m_clustering = KMeans
         self.cluster_model = m_clustering(self.k)
 
-
-
         self.vec[self.method] = self.vectorize(sentences, token_lists, self.method)
+        if self.method == "LDA":
+            print (" LDA Done.")
+            return
         print('Clustering the latent representations')
+        
         self.cluster_model.fit(self.vec[self.method].cpu())
 
         print('Clustering. Done!')

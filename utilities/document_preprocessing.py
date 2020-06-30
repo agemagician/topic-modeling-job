@@ -99,7 +99,7 @@ def preprocess_word(s):
     w_list = word_tokenize(s)
     w_list = f_punct(w_list)
     w_list = f_noun(w_list)
-    #w_list = f_stem(w_list)
+    w_list = f_stem(w_list)
     w_list = f_stopw(w_list)
 
     return w_list
@@ -159,7 +159,7 @@ def preprocess_documents(file=None, verbose = True):
             for sentence in sentences:
                 sentence = preprocess_sent(sentence)
                 token_list = preprocess_word(sentence)
-                keep_track_of_id.append(idx)
+                keep_track_of_id.append(id[idx])
                 if verbose:
                     print ('\n')
                     print (sentence)
@@ -179,8 +179,15 @@ def preprocess_documents(file=None, verbose = True):
     print("Dropped {} entries with non english text".format(len(id_drop)))
 
     print('\n Preprocessing raw texts. Done!')
+    
+    #saving the preprocessing data in a file
+    temp_df = pd.DataFrame()
+    temp_df['id'] = keep_track_of_id
+    temp_df['sentences'] = sentences_list
+    temp_df['token_list'] = token_lists
+    dr = 'output/preprocessed_data/'
+    import os
+    if not os.path.exists(dr):
+        os.makedirs(dr)
+    temp_df.to_pickle(dr + "use_this_data.pkl")
     return sentences_list, token_lists
-
-
-
-#preprocess_documents("../data/PMP_Skills_Matching_Pilot_2018_2019.xlsx", verbose=False)
