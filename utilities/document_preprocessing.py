@@ -126,7 +126,7 @@ def preprocess_documents(file=None, verbose = True):
 
     id = documents['User ID (anonymus)']
     docs = documents['Objective_Name'].astype(str) + ' \n ' + documents['Objective_Description'].astype(str) + ' \n ' + \
-                 documents['Objective_Comment'].astype(str) + ' \n ' + documents['Objective_Metric'].astype(str)
+                  documents['Objective_Metric'].astype(str)
 
     #docs = documents['Objective_Name'].astype(str) + ' \n ' + documents['Objective_Metric'].astype(str)
 
@@ -191,3 +191,5 @@ def preprocess_documents(file=None, verbose = True):
         os.makedirs(dr)
     temp_df.to_pickle(dr + "use_this_data.pkl")
     return sentences_list, token_lists
+
+#preprocess_documents("../data/PMP_Skills_Matching_Pilot_2018_2019_small.xlsx")

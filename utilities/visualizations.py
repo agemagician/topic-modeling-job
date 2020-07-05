@@ -22,7 +22,7 @@ def plot_proj(embedding, lbs):
 
 
 
-def get_wordcloud(model, token_lists=None, topic=None, word_distribution=None):
+def get_wordcloud(model, token_lists=None, topic=None, word_distribution=None, word_count_dict=None):
     """
     Get word cloud of each topic from fitted model
     :param model: Topic_Model object
@@ -30,7 +30,15 @@ def get_wordcloud(model, token_lists=None, topic=None, word_distribution=None):
     """
 
     print('Getting wordcloud for topic {} ...'.format(topic))
-    if word_distribution is not None:
+
+    if word_count_dict is not None:
+        dr = 'output/{}/{}/'.format(model.method, model.id)
+        wordcloud = WordCloud(width=800, height=560,
+                              background_color='white', collocations=False,
+                              min_font_size=10).generate_from_frequencies(word_count_dict,min_font_size=8)
+
+
+    elif word_distribution is not None:
         tokens = str()
         for item in word_distribution:
             word = item[0]
@@ -40,14 +48,16 @@ def get_wordcloud(model, token_lists=None, topic=None, word_distribution=None):
             tokens += ' '.join([''.join(word) for _ in range(word_occurance)])
             tokens += ' '
         dr = 'output/{}/{}/'.format("LDA", model.id)
+        wordcloud = WordCloud(width=800, height=560,
+                              background_color='white', collocations=False,
+                              min_font_size=10).generate(tokens)
             
     else:
         lbs = model.cluster_model.labels_
         tokens = ' '.join([' '.join(_) for _ in np.array(token_lists)[lbs == topic]])
         dr = 'output/{}/{}/'.format(model.method, model.id)
-    
-    print (tokens)
-    wordcloud = WordCloud(width=800, height=560,
+
+        wordcloud = WordCloud(width=800, height=560,
                           background_color='white', collocations=False,
                           min_font_size=10).generate(tokens)
 
