@@ -35,7 +35,7 @@ def get_wordcloud(model, token_lists=None, topic=None, word_distribution=None, w
         dr = 'output/{}/{}/'.format(model.method, model.id)
         wordcloud = WordCloud(width=800, height=560,
                               background_color='white', collocations=False,
-                              min_font_size=10).generate_from_frequencies(word_count_dict,min_font_size=8)
+                              min_font_size=10).generate_from_frequencies(word_count_dict)
 
 
     elif word_distribution is not None:
