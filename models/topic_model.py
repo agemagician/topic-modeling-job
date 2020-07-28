@@ -33,6 +33,7 @@ class Topic_Model:
             self.embedding = embedding
             self.id = self.method + '_k_' +  str(self.k) + '_' + self.embedding + '_' + datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         
+        self.dir = 'output/{}/{}/'.format(self.method, self.id)
         self.AE = None
         
         self.top_topics = None

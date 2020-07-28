@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-
+#todo: function is outdated.
 def plot_proj(embedding, lbs):
     """
     Plot UMAP embeddings
@@ -32,7 +32,6 @@ def get_wordcloud(model, token_lists=None, topic=None, word_distribution=None, w
     print('Getting wordcloud for topic {} ...'.format(topic))
 
     if word_count_dict is not None:
-        dr = 'output/{}/{}/'.format(model.method, model.id)
         wordcloud = WordCloud(width=800, height=560,
                               background_color='white', collocations=False,
                               min_font_size=10).generate_from_frequencies(word_count_dict)
@@ -47,7 +46,7 @@ def get_wordcloud(model, token_lists=None, topic=None, word_distribution=None, w
             word_occurance = int (dist * 1000 )
             tokens += ' '.join([''.join(word) for _ in range(word_occurance)])
             tokens += ' '
-        dr = 'output/{}/{}/'.format("LDA", model.id)
+
         wordcloud = WordCloud(width=800, height=560,
                               background_color='white', collocations=False,
                               min_font_size=10).generate(tokens)
@@ -55,7 +54,6 @@ def get_wordcloud(model, token_lists=None, topic=None, word_distribution=None, w
     else:
         lbs = model.cluster_model.labels_
         tokens = ' '.join([' '.join(_) for _ in np.array(token_lists)[lbs == topic]])
-        dr = 'output/{}/{}/'.format(model.method, model.id)
 
         wordcloud = WordCloud(width=800, height=560,
                           background_color='white', collocations=False,
@@ -66,9 +64,9 @@ def get_wordcloud(model, token_lists=None, topic=None, word_distribution=None, w
     plt.imshow(wordcloud)
     plt.axis("off")
     plt.tight_layout(pad=0)
-    if not os.path.exists(dr):
-        os.makedirs(dr)
-    plt.savefig(dr + 'Topic' + str(topic) + '_wordcloud')
+    if not os.path.exists(model.dir):
+        os.makedirs(model.dir)
+    plt.savefig(model.dir + 'Topic' + str(topic) + '_wordcloud')
     print('Getting wordcloud for topic {}. Done!'.format(topic))
 
 def visualize(model):

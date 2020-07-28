@@ -66,7 +66,7 @@ def f_noun(w_list):
     :param w_list: word list to be processed
     :return: w_list with only nouns selected
     """
-    return [word for (word, pos) in nltk.pos_tag(w_list) if pos[:2] == 'NN']
+    return [word for (word, pos) in nltk.pos_tag(w_list) if (pos[:2] == 'NN' or pos[:2] == 'JJ')]
 
 def f_stem(w_list):
     """
