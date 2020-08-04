@@ -9,7 +9,6 @@ from gensim import corpora, models
 from sklearn.cluster import KMeans
 import numpy as np
 
-from torch import *
 class Topic_Model:
     def __init__(self, k=3, embedding = None, saved_embedding_dir = None, verbose= False, embedding_batch_size=100):
         """
