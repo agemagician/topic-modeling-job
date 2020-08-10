@@ -190,6 +190,6 @@ def preprocess_documents(file=None, verbose = True):
     if not os.path.exists(dr):
         os.makedirs(dr)
     temp_df.to_pickle(dr + "use_this_data.pkl")
-    return sentences_list, token_lists
+    return id, sentences_list, token_lists
 
 #preprocess_documents("../data/PMP_Skills_Matching_Pilot_2018_2019_small.xlsx")

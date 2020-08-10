@@ -2,7 +2,6 @@ import nltk
 from stop_words import get_stop_words
 from nltk.stem.porter import PorterStemmer
 
-
 def generate_n_gram(sentences, n=2,separator = '-',  keep_stopwords = True, stem=False, keep_nouns_only = False):
     '''
     personal thoughts: A very brain consuming function I had written in a while.
@@ -56,19 +55,14 @@ def generate_n_gram(sentences, n=2,separator = '-',  keep_stopwords = True, stem
                 n_gram_per_sentence.append(feature)
         n_grams_all_sentences.append(n_gram_per_sentence)
 
-    return n_grams_all_sentences
+    #todo: replace this with a counter maybe?
+    ngram_token_with_frequency = dict()
 
+    for sentence in n_grams_all_sentences:
+        for feature in sentence:
+            if feature in ngram_token_with_frequency.keys():
+                ngram_token_with_frequency[feature] += 1
+            else:
+                ngram_token_with_frequency[feature] = 1
 
-
-'''
-#read the previously processed data
-import pandas as pd
-data = pd.read_pickle("output/preprocessed_data/use_this_data.pkl")
-sentences = list(data['sentences'])
-token_lists = list(data['token_list'])
-
-gram_features = generate_n_gram(sentences,n=3, separator = '-', keep_stopwords = False, stem = False, keep_nouns_only= False)
-for feat in gram_features:
-    print (feat)
-
-'''
+    return ngram_token_with_frequency

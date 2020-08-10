@@ -1,26 +1,8 @@
-from collections import Counter
 import umap
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-
-#todo: function is outdated.
-def plot_proj(embedding, lbs):
-    """
-    Plot UMAP embeddings
-    :param embedding: UMAP (or other) embeddings
-    :param lbs: labels
-    """
-    n = len(embedding)
-    counter = Counter(lbs)
-    for i in range(len(np.unique(lbs))):
-        plt.plot(embedding[:, 0][lbs == i], embedding[:, 1][lbs == i], '.', alpha=0.5,
-                 label='cluster {}: {:.2f}%'.format(i, counter[i] / n * 100))
-    plt.legend(loc = 'best')
-    plt.grid(color ='grey', linestyle='-',linewidth = 0.25)
-
-
 
 def get_wordcloud(model, token_lists=None, topic=None, word_distribution=None, word_count_dict=None):
     """
@@ -69,18 +51,3 @@ def get_wordcloud(model, token_lists=None, topic=None, word_distribution=None, w
     plt.savefig(model.dir + 'Topic' + str(topic) + '_wordcloud')
     print('Getting wordcloud for topic {}. Done!'.format(topic))
 
-def visualize(model):
-    """
-    Visualize the result for the topic model by 2D embedding (UMAP)
-    :param model: Topic_Model object
-    """
-    reducer = umap.UMAP()
-    print('Calculating UMAP projection ...')
-    vec_umap = reducer.fit_transform(model.vec[model.method])
-    print('Calculating UMAP projection. Done!')
-    plot_proj(vec_umap, model.cluster_model.labels_)
-    dr = 'output/{}/{}'.format(model.method, model.id)
-    print (dr)
-    if not os.path.exists(dr):
-        os.makedirs(dr)
-    plt.savefig('output/{}/{}/2dvis.png'.format(model.method, model.id))
