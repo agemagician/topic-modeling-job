@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Topic Modeling Demo</title>
+</head>
+<body>
+
+{% extends "layout.html" %}
+{% block content %}
+   <div class="home">
+     <h1>Upload new data</h1>
+     <p>This is a page to pre-compute embeddings on the new data</p>
+
+       Excel file upload
+
+       <form id="upload-form" action="{{ url_for('precompute') }}" method="POST" enctype="multipart/form-data">
+
+    <input class = "button" id="file-picker" type="file" name="file" accept="file/*" multiple>
+    <div id="msg"></div>
+    <p>
+    <input class="button" type="submit" value="       Upload Data      " id="upload-button">
+    </p>
+    </form>
+
+
+
+   </div>
+ {% endblock %}
+
+</body>
+</html>

@@ -1,21 +1,104 @@
 body {
-  background-color: black;
-  color: white;
+  margin: 0;
+  padding: 0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: #444;
+}
+/*
+ * Formatting the header area
+ */
+header {
+  background-color: #DFB887;
+  height: 50px;
+  width: 100%;
+  opacity: .9;
+  margin-bottom: 10px;
+}
+header h1.logo {
+  margin: 0;
+  font-size: 1.7em;
+  color: #fff;
+  text-transform: uppercase;
+  float: left;
+  top: 10px
+}
+header h1.logo:hover {
+  color: #fff;
+  text-decoration: none;
+}
+/*
+ * Centering the body content
+ */
+.container {
+  width: 90%;
+  margin: 0 auto;
+}
+div.home {
+  padding: 10px 10px 30px 10px;
+  background-color: #a5c6cf;
+  -webkit-border-radius: 6px;
+     -moz-border-radius: 6px;
+          border-radius: 6px;
+}
+
 }
 
 h1 {
-  color: white;
-}
-h2 {
-  color: white;
+  font-size: 1.5em;
+  margin-top: 40px;
+  /*text-align: center;*/
+  letter-spacing: -2px;
 }
 h3 {
-  color: white;
+  font-size: 1.3em;
+  font-weight: 100;
+  margin-top: 20px;
+  /*text-align: center;*/
+  letter-spacing: -1px;
+  color: #6b6b6d;
 }
-h4 {
-  color: white;
+
+h2 {
+  font-size: 1.6em;
+  font-weight: 50;
+  margin-top: 30px;
+  /*text-align: center;*/
+  letter-spacing: -1px;
+  color: #6b6b6d;
 }
-p {
-  font-family: verdana;
-  font-size: 20px;
+
+.indent{
+   margin: 0;
+   position: absolute;
+   left: 50%;
+   -ms-transform: translateX(-50%);
+   transform: translateX(-50%);
+}
+
+.button {
+  background-color: #DFB887;
+  border: 2px solid white;
+  color: #fff;
+  padding: 15px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-weight: bold;
+  font-size: 16px;
+  opacity: .9;
+
+}
+.menu {
+  float: right;
+  margin-top: 8px;
+}
+.menu li {
+  display: inline;
+}
+.menu li + li {
+  margin-left: 35px;
+}
+.menu li a {
+  color: #444;
+  text-decoration: none;
 }

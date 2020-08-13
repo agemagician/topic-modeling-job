@@ -183,13 +183,16 @@ def generate_embedding(objectives, model_name, batch_size=100):
     return (sentence_embedding)
 
 
-def get_embeddings(model_name = None, file_name =None, sentences= None, saved_embedding_dir = None, batch_size = 100):
+def get_embeddings(model_name = None, file_name =None, sentences= None, saved_embedding_dir = None, batch_size = 100 , dr = None):
     '''
     wrapper functions which generates the the embeddings for the text in input file and saves in a json file
     - Inputs:
         file_name (str): string pointing to the file to be read
         model_name (str): name of the model to be used for generating embeddings
         saved_embedding_dir (str): path to json file, if the precomputed embedding needs to be used.
+        sentences (list of list): sentences, if data has been read previously
+        bath_size (int): batch size to use when generating the embeddings
+        dr (str): folder path where the embedding should be stored. if not given, the default path is used
 
     - Output:
         sentence_embedding (tensor): tensor of shape n by 1024 where n is the number of sentence
@@ -220,7 +223,10 @@ def get_embeddings(model_name = None, file_name =None, sentences= None, saved_em
 
     # save embeddings
 
-    output_folder = 'output/embeddings/' +  str(datetime.now().strftime("%Y_%m_%d_%H_%M_%S") ) + '_'  + model_name + '/'
+    if dr == None:
+        output_folder = 'output/embeddings/' +  str(datetime.now().strftime("%Y_%m_%d_%H_%M_%S") ) + '_'  + model_name + '/'
+    else:
+        output_folder = dr
     file_name = output_folder + model_name + '_embeddings.json'
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)

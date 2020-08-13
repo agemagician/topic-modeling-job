@@ -6,6 +6,7 @@ from nltk.tokenize import word_tokenize
 import pandas as pd
 import numpy as np
 from langdetect import detect
+import os
 
 #downloads
 #nltk.download('crubadan')
@@ -106,7 +107,7 @@ def preprocess_word(s):
 
 
 # wrapper function to preprocess all the sentences in a document
-def preprocess_documents(file=None, verbose = True):
+def preprocess_documents(file=None, verbose = True, dr = 'output/preprocessed_data/'):
     """
     Read the file and preprocess the data
 
@@ -185,8 +186,8 @@ def preprocess_documents(file=None, verbose = True):
     temp_df['id'] = keep_track_of_id
     temp_df['sentences'] = sentences_list
     temp_df['token_list'] = token_lists
-    dr = 'output/preprocessed_data/'
-    import os
+
+
     if not os.path.exists(dr):
         os.makedirs(dr)
     temp_df.to_pickle(dr + "use_this_data.pkl")

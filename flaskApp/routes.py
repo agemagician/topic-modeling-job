@@ -1,41 +1,90 @@
-from flask import render_template, request
+from flask import render_template, flash, request, redirect, url_for
 from flaskApp import app
 import pandas as pd
-from models.topic_model import Topic_Model
-from utilities.visualizations import *
+
 import os
 import shutil
 
+#imports from my own classes
+from utilities.document_preprocessing import preprocess_documents
+
+from models.topic_model import Topic_Model
+
+from models.embeddings_model import get_embeddings
 
 @app.route('/', methods=['GET'])
-@app.route('/index')
-def index():
-    user = {'username': 'Anum'}
-    embeddings = ['BERT', 'XLNET', 'None']
-    base_models = ['Latent Drichlet Allocation - LDA']
-    num_clusters = [1,2,3,4,5,6,7,8,9,10]
+@app.route('/home')
+def home():
 
-    return render_template('index.html', user=user, embeddings=embeddings, base_models = base_models, num_clusters=num_clusters)
+    return render_template('home.html', user=user, embeddings=embeddings, base_models = base_models,
+                           num_clusters=num_clusters, n_grams = n_grams, visualizations=visualizations)
 
+@app.route('/upload', methods=['GET', 'POST'])
+def upload():
+    return render_template('upload.html')
+
+@app.route('/precompute', methods=['GET', 'POST'])
+def precompute():
+    if request.method == 'POST':
+        success = False
+        #uploading the file
+        try:
+            upload = request.files.get("file")
+            print("file name: {}".format(upload.filename))
+            filename = upload.filename
+            destination = temp_data_folder + filename
+            upload.save(destination)
+            print("Uploaded to ", destination)
+
+            #reading and preprocessing the data
+            ids, sentences, token_lists = preprocess_documents(destination, verbose=False, dr = temp_data_folder)
+            #generating embeddings and saving it
+            for embed in embeddings:
+                print (embed)
+                if embed == 'none':
+                    continue
+                sentence_embedding = get_embeddings(model_name=embed, sentences=sentences,
+                                                    batch_size=100, dr = temp_data_folder)
+
+            success = True
+
+        except:
+            return render_template('precompute.html', filename="Failed to precompute data")
+
+    #delete the previous data
+    if success:
+        if os.path.exists(data_folder):
+            os.remove(data_folder)
+        os.rename(temp_data_folder, data_folder)
+        os.remove(temp_data_folder)
+
+    return render_template('precompute.html', filename=filename)
 @app.route("/result" , methods=['GET', 'POST'])
 def result():
+
+    #define few global variables to be used throughout
+    global sentences, algorithm
+
+    #reading the configurations
     algorithm = dict()
 
-    algorithm['base'] = request.form.get('selected_base_model')
-    algorithm['k'] = request.form.get('selected_k')
+    algorithm['base'] = str(request.form.get('selected_base_model'))
+    algorithm['k'] = int(request.form.get('selected_k'))
+    algorithm['n_gram'] =int( request.form.get('selected_ngram'))
+    algorithm['visualization'] = str(request.form.get('selected_vis'))
 
     if request.form.get('selected_embedding') == 'None':
         algorithm['embedding'] = None
-        embedding_path = None
     else:
-        algorithm ['embedding'] = str(request.form.get('selected_embedding')).lower()
+        algorithm ['embedding'] = str(request.form.get('selected_embedding'))
         # computing path to the selected embedding
-        embedding_path = "output/precomputed/" + algorithm['embedding'] + "_embeddings.json"
+        embedding_path = data_folder + algorithm['embedding'] + "_embeddings.json"
 
     # reading the data
-    data = pd.read_pickle("output/precomputed/use_this_data.pkl")
+    data = pd.read_pickle(data_folder + processed_file)
     sentences = list(data['sentences'])
     token_lists = list(data['token_list'])
+    ids = list(data['id'])
 
     # Define the topic model object
     TopicModelObject = Topic_Model(k=algorithm['k'], verbose=False, embedding=algorithm['embedding'],
@@ -43,20 +92,18 @@ def result():
     # Fit the topic model
     TopicModelObject.fit(sentences, token_lists)
 
-    # generating and saving the word clouds for the defined clusters
-    if TopicModelObject.method == 'LDA':
-        # we use the word_distribution method for word cloud as we only have probability
-        # of that word belonging to the cluster from LDA
-        for k, cluster_word_distribution in TopicModelObject.get_top_words_lda(top=100).items():
-            get_wordcloud(TopicModelObject, word_distribution=cluster_word_distribution, topic=k)
+    if algorithm['visualization'] == 'Word Cloud':
+        # generating and saving the word clouds for the defined clusters
+        TopicModelObject.wordcloud(sentences,algorithm)
+    elif "Employee Cluster" in algorithm['visualization']:
+        # if visualization is Employee Clusters using plotly
+        TopicModelObject.vis_employee_clusters(sentences, ids, algorithm['visualization'])
     else:
-        # for LDA + Bert, we have no distribution so we pick the most occuring words from the
-        # sentences belonging to that cluster
-        for i in range(TopicModelObject.k):
-            get_wordcloud(TopicModelObject, token_lists, i)
+        # Network visuaization
+        TopicModelObject.vis_network()
 
     # get list of all word cloud images from the directory
-    wordcloud_images = os.listdir(TopicModelObject.dir)
+    images = os.listdir(TopicModelObject.dir)
 
     # moving them to the static folder to be accessed by Flask
     # getting source paths
@@ -66,10 +113,29 @@ def result():
     if not os.path.exists(destination):
         os.makedirs(destination)
     # move the files
-    for f in wordcloud_images:
+    for f in images:
         shutil.move(source + f, destination)
     #constructing path to the images inside the static folder
-    wordcloud_images = [TopicModelObject.dir + '/' + image for image in wordcloud_images]
-    print (wordcloud_images)
+    images = [{'id': i+1, 'path': TopicModelObject.dir + '/' + image}
+                        for i , image in enumerate(images)]
+    print (images)
 
-    return render_template('results.html', algorithm=algorithm, wordcloud_images = wordcloud_images)
+
+    return render_template('results.html', algorithm=algorithm, images = images)
+
+
+
+user = {'username': 'Anum'}
+embeddings = ['bert', 'xlnet', 'none']
+base_models = ['Latent Drichlet Allocation - LDA']
+n_grams = [1, 2, 3, 4]
+num_clusters = [1,2,3,4,5,6,7,8,9,10]
+visualizations = ["Word Cloud", " Networks", "Employee Cluster 2D", "Employee Cluster 3D"]
+
+#define the directory where data is stored temporarily
+temp_data_folder = "data/temp/"
+#define the permanent folder for the data
+data_folder = "data/flask/"
+processed_file = "use_this_data.pkl"
+if not os.path.exists(temp_data_folder):
+    os.makedirs(temp_data_folder)

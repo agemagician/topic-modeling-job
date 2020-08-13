@@ -6,17 +6,25 @@
     <link rel="stylesheet" href="static/css/main.css">
 </head>
 <body>
+{% extends "layout.html" %}
+{% block content %}
+<div class="home">
 <h3>
 
     <p> Base Algorithm: {{algorithm.base}} </p>
     <p> Embedding: {{algorithm.embedding}} </p>
     <p> Number of cluster: {{algorithm.k}} </p>
+    <p> N-gram: {{algorithm.n_gram}} </p>
+    <p> Visualization: {{algorithm.visualization}} </p>
+
 </h3>
 
-{% for image in wordcloud_images %}
+{% for image in images %}
 <br>
-<img src="{{url_for('static', filename=image)}}"/>
+<h3>Cluster {{image.id}}</h3>
+<img src="{{url_for('static', filename=image.path)}}"/>
 {% endfor %}
-
+</div>
+{% endblock %}
 </body>
 </html>
