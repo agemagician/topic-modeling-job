@@ -73,8 +73,9 @@ def result():
     algorithm['n_gram'] =int( request.form.get('selected_ngram'))
     algorithm['visualization'] = str(request.form.get('selected_vis'))
 
-    if request.form.get('selected_embedding') == 'None':
+    if request.form.get('selected_embedding') == 'none':
         algorithm['embedding'] = None
+        embedding_path= None
     else:
         algorithm ['embedding'] = str(request.form.get('selected_embedding'))
         # computing path to the selected embedding
@@ -97,10 +98,10 @@ def result():
         TopicModelObject.wordcloud(sentences,algorithm)
     elif "Employee Cluster" in algorithm['visualization']:
         # if visualization is Employee Clusters using plotly
-        TopicModelObject.vis_employee_clusters(sentences, ids, algorithm['visualization'])
+        TopicModelObject.vis_employee_clusters(sentences, ids, algorithm['visualization'], algorithm['n_gram'])
     else:
         # Network visuaization
-        TopicModelObject.vis_network()
+        TopicModelObject.vis_network(ids,sentences, algorithm['n_gram'])
 
     # get list of all word cloud images from the directory
     images = os.listdir(TopicModelObject.dir)
@@ -118,8 +119,6 @@ def result():
     #constructing path to the images inside the static folder
     images = [{'id': i+1, 'path': TopicModelObject.dir + '/' + image}
                         for i , image in enumerate(images)]
-    print (images)
-
 
     return render_template('results.html', algorithm=algorithm, images = images)
 

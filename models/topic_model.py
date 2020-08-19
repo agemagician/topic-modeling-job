@@ -2,7 +2,7 @@
 from models.embeddings_model import get_embeddings
 from models.autoencoder_model import Autoencoder
 from utilities.utils import generate_n_gram
-from utilities.visualizations import get_employee_clusters, get_wordcloud
+from utilities.visualizations import get_employee_clusters, get_wordcloud, get_network
 from datetime import datetime
 import gensim
 from gensim import corpora, models
@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from collections import Counter
 from sklearn.manifold import TSNE
+import os
 
 class Topic_Model:
     def __init__(self, k=3, embedding = None, saved_embedding_dir = None, verbose= False, embedding_batch_size=100):
@@ -36,6 +37,9 @@ class Topic_Model:
             self.id = self.method + '_k_' +  str(self.k) + '_' + self.embedding + '_' + datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         
         self.dir = 'output/{}/{}/'.format(self.method, self.id)
+        #create the directory for saving outputs
+        if not os.path.exists(self.dir):
+            os.makedirs(self.dir)
         self.AE = None
         
         self.top_topics = None
@@ -248,6 +252,7 @@ class Topic_Model:
 
     def wordcloud(self, sentences, algorithm):
         '''
+        Visualization Function
         This functions creates wordclouds as per the specified configurations through the user interface
         and saves them in the predefined directory
         :param TopicModelObject: TopicModel instances
@@ -258,7 +263,7 @@ class Topic_Model:
             # we use the word_distribution method for word cloud as we only have probability
             # of that word belonging to the cluster from LDA
             for k, cluster_word_distribution in self.get_top_words_lda(top=100).items():
-                get_wordcloud(self, word_distribution=cluster_word_distribution, topic=k)
+                get_wordcloud(word_distribution=cluster_word_distribution, topic=k, dir=self.dir)
         else:
             # for LDA + Bert, we have no distribution so we pick the most occuring words from the
             # sentences belonging to that cluster
@@ -273,35 +278,99 @@ class Topic_Model:
                 ngram_token_with_frequency = generate_n_gram(k_sentences, n=algorithm['n_gram'], separator='-',
                                                              keep_stopwords=False, stem=False, keep_nouns_only=False)
 
-                get_wordcloud(self, topic=i, word_count_dict=ngram_token_with_frequency)
+                get_wordcloud(topic=i, word_count_dict=ngram_token_with_frequency, dir=self.dir)
 
-    def vis_employee_clusters(self, sentences, ids, vis):
-        averaged_employee_features = self.compress_features(ids)
-
-        # main topics for each cluster
-        cluster_titles = []
+    def get_labels(self):
+        if self.method == 'LDA':
+            return np.argmax(self.vec['LDA'], axis=1)
+        else:
+            return self.cluster_model.labels_
+    def get_cluster_text(self, sentences, ngram):
 
         # Getting indexes of sentences belonging to each cluster
         sentence_label_dict = dict()
-        for label in set(self.cluster_model.labels_):
-            sentence_label_dict[label] = [idx for idx, l in enumerate(self.cluster_model.labels_) if
-                                          l == label]
 
+        labels = self.get_labels()
+        for label in set(labels):
+            sentence_label_dict[label] = [idx for idx, l in enumerate(labels) if l == label]
+        # constructing cluster titles
+        cluster_titles = []
         for i in range(self.k):
             k_sentences = np.array(sentences)[sentence_label_dict[i]]
-            ngram_token_with_frequency = Counter(generate_n_gram(k_sentences, n=3, separator='-',
+            ngram_token_with_frequency = Counter(generate_n_gram(k_sentences, n=ngram, separator='-',
                                                                  keep_stopwords=True, stem=False,
                                                                  keep_nouns_only=False))
 
             cluster_title = ', '.join([key for key, value in ngram_token_with_frequency.most_common(6)])
 
             cluster_titles.append(cluster_title)
+        return cluster_titles
 
-        get_employee_clusters(self, averaged_employee_features, cluster_titles, vis=vis)
+    def get_employee_text(self,sentences, ids):
+        # get the indices of all objectives/documents/sentence for each employee
+        employee_objective_indices = dict()
+        for employee in set(ids):
+            employee_indices = [i for i, e in enumerate(ids) if (ids[i] == employee)]
+            employee_objective_indices[employee] = employee_indices
 
-    def vis_network(self):
+        np_sentences = np.array(sentences)
+        employee_titles = dict()
+        for emp in list(set(ids)):
+            emp_indices = employee_objective_indices[emp]
+            employee_title = '. '.join([objective for objective in np_sentences[emp_indices]])
+
+            employee_titles[emp] = emp + ': ' + employee_title[0:150]
+        return employee_titles
+
+    def vis_employee_clusters(self, sentences, ids, vis_type, ngram):
         '''
-        place holder function for network visualizations
+        Visualization Function
+        :param sentences:
+        :param ids:
+        :param vis_type:
+        :param ngram:
         :return:
         '''
-        pass
+        averaged_employee_features = self.compress_features(ids)
+
+        cluster_titles = self.get_cluster_text(sentences,ngram)
+
+        # constructing hover text (all objectives belonging to that employee)
+        employee_titles = self.get_employee_text(sentences,ids)
+
+        #calling the visualization function
+        get_employee_clusters(averaged_employee_features, cluster_titles, employee_titles, vis=vis_type, dir = self.dir)
+
+    def vis_network(self,ids, sentences,ngram):
+        '''
+
+        :param ids:
+        :param sentences:
+        :param ngram:
+        :return:
+        '''
+
+        # create a dataframe to store the frequence per cluster for each employee.
+        unique_ids = set(ids)
+        df_id_cluster = pd.DataFrame(0,
+                                     index=pd.Index(unique_ids, name='Employee id'),
+                                     columns=pd.Index([i for i in range(self.k)], name='Clusters'))
+        # There are multiple entries per employee so an employee can belong to multiple clusters
+        labels = self.get_labels()
+        for i, _id in enumerate(ids):
+            df_id_cluster[labels[i]][_id] += 1
+
+        employee_cluster_frequency = df_id_cluster.values.tolist()
+
+        # 1. get hover text for employee nodes
+
+        # constructing hover text (all objectives belonging to that employee)
+        employee_titles = self.get_employee_text(sentences, ids)
+
+        # 2. get hover text for cluster nodes
+        # main topics for each cluster
+
+        cluster_titles = self.get_cluster_text(sentences,ngram)
+        # call the visualization functions
+
+        get_network(employee_cluster_frequency, employee_titles, cluster_titles, dir = self.dir)

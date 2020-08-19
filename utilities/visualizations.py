@@ -4,9 +4,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import plotly.graph_objects as go
+from pyvis.network import Network
+import networkx as nx
 
 #todo: move this function inside the topic model class
-def get_wordcloud(model, token_lists=None, topic=None, word_distribution=None, word_count_dict=None):
+def get_wordcloud(token_lists=None, topic=None, word_distribution=None, word_count_dict=None, dir = os.getcwd()):
     """
     Get word cloud of each topic from fitted model
     :param model: Topic_Model object
@@ -15,18 +17,19 @@ def get_wordcloud(model, token_lists=None, topic=None, word_distribution=None, w
 
     print('Getting wordcloud for topic {} ...'.format(topic))
 
+    # LDA + embeddings
     if word_count_dict is not None:
         wordcloud = WordCloud(width=800, height=560,
                               background_color='white', collocations=False,
                               min_font_size=10).generate_from_frequencies(word_count_dict)
 
-
+    #LDA
     elif word_distribution is not None:
         tokens = str()
         for item in word_distribution:
             word = item[0]
             dist = item[1]
-            # from porobability to actually numbers the word appears in the document
+            # from probability to actually numbers the word appears in the document
             word_occurance = int (dist * 1000 )
             tokens += ' '.join([''.join(word) for _ in range(word_occurance)])
             tokens += ' '
@@ -36,44 +39,51 @@ def get_wordcloud(model, token_lists=None, topic=None, word_distribution=None, w
                               min_font_size=10).generate(tokens)
 
     else:
+        return
+        '''
         lbs = model.cluster_model.labels_
         tokens = ' '.join([' '.join(_) for _ in np.array(token_lists)[lbs == topic]])
 
         wordcloud = WordCloud(width=800, height=560,
                           background_color='white', collocations=False,
                           min_font_size=10).generate(tokens)
-
+        '''
     # plot the WordCloud image
     plt.figure(figsize=(8, 5.6), facecolor=None)
     plt.imshow(wordcloud)
     plt.axis("off")
     plt.tight_layout(pad=0)
-    if not os.path.exists(model.dir):
-        os.makedirs(model.dir)
-    plt.savefig(model.dir + 'Topic' + str(topic) + '_wordcloud')
+
+    plt.savefig(dir + 'Topic' + str(topic) + '_wordcloud')
     print('Getting wordcloud for topic {}. Done!'.format(topic))
 
 #todo: move this function inside the topic model class
-def get_employee_clusters(model, averaged_employee_features, cluster_titles , vis = 'Employee Cluster 2D'):
-    if not os.path.exists(model.dir):
-        os.makedirs(model.dir)
+def get_employee_clusters(averaged_employee_features, cluster_titles ,employee_titles, vis = 'Employee Cluster 2D', dir = os.getcwd()):
+
 
     fig = go.Figure()
-
+    k = len(cluster_titles)
     if vis == 'Employee Cluster 2D':
-        for i, cl in enumerate(range(model.k)):
+        for i, cl in enumerate(range(k)):
             cluster_df = averaged_employee_features[averaged_employee_features.cluster == cl]
 
             # plot all the employees belonging to a cluster using a new trace.
             features = np.stack(cluster_df['feature_vector_2d'].to_numpy())
 
+            # Normalize the features between 0 and 1 before visualization
+            min_ = features.min(axis=0)
+            max_ = features.max(axis=0)
+            #features = (features - min_) / (max_ - min_)
+
+            # constructing hover text for all employees belonging to that cluster
+            employee_titles_this_cluster = [employee_titles[emp] for emp in cluster_df.index.values]
 
             fig.add_trace(go.Scattergl(
                 x=features[:, 0],
                 y=features[:, 1],
                 mode='markers',
                 showlegend=True,
-                text=cluster_df.index.values,
+                text=employee_titles_this_cluster,
                 marker=dict(size=8, color=i),
                 name="cluster_" + str(cl + 1) + ": " + cluster_titles[cl]
             ))
@@ -84,24 +94,33 @@ def get_employee_clusters(model, averaged_employee_features, cluster_titles , vi
             traceorder='normal',
             font=dict(
                 size=10)))
-        path = model.dir + '2D_clusters.jpeg'
+        path = dir + '2D_clusters.jpeg'
     else:
         #vis is 3d (Employee Cluster 3D)
         fig = go.Figure()
 
-        for i, cl in enumerate(range(model.k)):
+        for i, cl in enumerate(range(k)):
             cluster_df = averaged_employee_features[averaged_employee_features.cluster == cl]
 
             # plot all the employees belonging to a cluster using a new trace.
             features = np.stack(cluster_df['feature_vector_3d'].to_numpy())
 
-            fig.add_trace(go.Scatter3d(
+            # Normalize the features between 0 and 1 before visualization
+            min_ = features.min(axis=0)
+            max_ = features.max(axis=0)
+
+            features = (features - min_) / (max_ - min_)
+
+            # constructing hover text for all employees belonging to that cluster
+            employee_titles_this_cluster = [employee_titles[emp] for emp in cluster_df.index.values]
+
+        fig.add_trace(go.Scatter3d(
                 x=features[:, 0],
                 y=features[:, 1],
                 z=features[:, 2],
                 mode='markers',
                 showlegend=True,
-                text=cluster_df.index.values,
+                text=employee_titles_this_cluster,
                 marker=dict(size=3, color=i),
                 name="cluster_" + str(cl + 1) + ": " + cluster_titles[cl]
             ))
@@ -112,9 +131,89 @@ def get_employee_clusters(model, averaged_employee_features, cluster_titles , vi
             traceorder='normal',
             font=dict(
                 size=10)))
-        path = model.dir + '3D_clusters.jpeg'
+        path = dir + '3D_clusters.jpeg'
 
     fig.show()
     fig.write_image(path)
     print ("Saved Clusters to " , path)
+
+def get_network(employee_cluster_frequency, dict_employee_titles, cluster_titles, dir = os.getcwd()):
+    '''
+
+    :param employee_cluster_frequency:
+    :param employee_titles:
+    :param cluster_titles:
+    :return:
+    '''
+    net = Network("500px", "500px")
+    k = len(cluster_titles)
+
+    '''
+     1. Create all cluster nodes
+    '''
+
+    # cluster ids
+    cluster_node_ids = ["cluster_" + str(i + 1) for i in range(k)]
+
+    # size of the cluster nodes
+    cluster_node_size = 1000
+
+    cluster_sizes = [cluster_node_size for _ in range(k)]
+    x = [40 + i for i in range(k)]
+    y = [40 + i for i in range(k)]
+    color = ["#dd4b39" for i in range(k)]
+
+    net.add_nodes(cluster_node_ids, value=cluster_sizes,
+                  title=cluster_titles,
+                  x=x, y=y,
+                  label=cluster_node_ids,
+                  color=color)
+
+    '''
+    2. Create all Employee Nodes
+    '''
+    # employee ids
+    employee_node_ids = list(dict_employee_titles.keys())
+    employee_titles = [dict_employee_titles[emp] for emp in employee_node_ids]
+    # size of the employee nodes
+    employee_node_size = 200
+
+    employee_node_sizes = [employee_node_size for _ in range(len(employee_node_ids))]
+    x = [10 + i for i in range(len(employee_node_ids))]
+    y = [40 + i for i in range(len(employee_node_ids))]
+    color = ["#162347" for _ in range(len(employee_node_ids))]
+
+    net.add_nodes(employee_node_ids, value=employee_node_sizes,
+                  title=employee_titles,
+                  x=x, y=y,
+                  label=employee_node_ids,
+                  color=color)
+
+    '''
+    3. Create Edges between the employee and cluster nodes
+    '''
+    # create all edges between employees and clusters
+    for emp, employee_cluster in enumerate(employee_cluster_frequency):
+        for cl, cluster in enumerate(employee_cluster):
+
+            # If the employee belongs to that cluster
+            if cluster > 0:
+                # print (employee_node_ids[emp],cluster_node_ids[cl])
+                net.add_edge(employee_node_ids[emp], cluster_node_ids[cl], weight=float(cluster / sum(employee_cluster)))
+
+    '''
+    4. Visualize the network
+    '''
+    net.show_buttons(filter_=['physics'])
+    # visualize the network
+    net.show("example.html")
+
+    '''
+    4. todo: save a snapshot of the network
+    '''
+
+
+
+
+
 
