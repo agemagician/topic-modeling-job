@@ -59,11 +59,19 @@ def precompute():
         os.remove(temp_data_folder)
 
     return render_template('precompute.html', filename=filename)
+
+@app.route('/pyldavis', methods=['POST'])
+def pyldavis():
+    if request.method == 'POST':
+        TopicModelObject.vis_pyldavis(token_lists)
+        return redirect(url_for('results'))
+
+
 @app.route("/result" , methods=['GET', 'POST'])
 def result():
 
     #define few global variables to be used throughout
-    global sentences, algorithm
+    global sentences, algorithm, TopicModelObject, token_lists, images
 
     #reading the configurations
     algorithm = dict()
@@ -71,7 +79,7 @@ def result():
     algorithm['base'] = str(request.form.get('selected_base_model'))
     algorithm['k'] = int(request.form.get('selected_k'))
     algorithm['n_gram'] =int( request.form.get('selected_ngram'))
-    algorithm['visualization'] = str(request.form.get('selected_vis'))
+    algorithm['visualization'] = visualizations[int(request.form.get('selected_vis2'))]['name']
 
     if request.form.get('selected_embedding') == 'none':
         algorithm['embedding'] = None
@@ -90,6 +98,8 @@ def result():
     # Define the topic model object
     TopicModelObject = Topic_Model(k=algorithm['k'], verbose=False, embedding=algorithm['embedding'],
                                    saved_embedding_dir=embedding_path)
+
+
     # Fit the topic model
     TopicModelObject.fit(sentences, token_lists)
 
@@ -100,7 +110,7 @@ def result():
         # if visualization is Employee Clusters using plotly
         TopicModelObject.vis_employee_clusters(sentences, ids, algorithm['visualization'], algorithm['n_gram'])
     else:
-        # Network visuaization
+        # Network visualization
         TopicModelObject.vis_network(ids,sentences, algorithm['n_gram'])
 
     # get list of all word cloud images from the directory
@@ -128,8 +138,13 @@ user = {'username': 'Anum'}
 embeddings = ['bert', 'xlnet', 'none']
 base_models = ['Latent Drichlet Allocation - LDA']
 n_grams = [1, 2, 3, 4]
-num_clusters = [1,2,3,4,5,6,7,8,9,10]
-visualizations = ["Word Cloud", " Networks", "Employee Cluster 2D", "Employee Cluster 3D"]
+num_clusters = [2,3,4,5]
+visualizations = [
+    {'i': 0, 'name': "Employee Cluster 2D", 'path':'static/gui/cluster_2D.png'},
+       {'i': 1, 'name': "Employee Cluster 3D", 'path':'static/gui/cluster_3D.png'},
+       {'i': 2, 'name': "Networks", 'path':'static/gui/network.png'},
+       {'i': 3, 'name': "Word Cloud", 'path':'static/gui/wordcloud.png'}
+    ]
 
 #define the directory where data is stored temporarily
 temp_data_folder = "data/temp/"

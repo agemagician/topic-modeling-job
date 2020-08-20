@@ -17,6 +17,14 @@
     <p> N-gram: {{algorithm.n_gram}} </p>
     <p> Visualization: {{algorithm.visualization}} </p>
 
+    <form class="form-inline" method="POST" action="{{ url_for('pyldavis') }}">
+
+        <button type="submit" class="button" name="submit_button">See topic distribution per cluster using LDA</button>
+
+    </form>
+
+
+
 </h3>
 
 {% for image in images %}

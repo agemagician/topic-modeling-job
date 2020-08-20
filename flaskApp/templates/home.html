@@ -49,17 +49,28 @@
             </select>
 
             <h2>Visualization Type </h2>
-            <select name="selected_vis" class="selectpicker form-control">
-              {% for vis in visualizations %}
-              <option value="{{ vis }}">{{ vis }}</option>
-              {% endfor %}
-            </select>
+    <p>
+        <table style="width:100%">
+          <tr>
+            {% for vis in visualizations %}
+            <th>
 
+                <figure >
+
+                    <img src=" {{vis.path}}"  width="224" height="224" >
+
+                <figcaption>{{vis.name}}</figcaption>
+                </figure>
+                <input type="checkbox" name="selected_vis" value="{{vis.i}}" unchecked>
+
+            </th>
+
+    {% endfor %}
+          </tr>
+        </table>
+
+    </p>
             </div>
-
-
-
-
 
       <br>
     <button type="submit" class="button">Generate Clusters</button>

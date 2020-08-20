@@ -12,6 +12,9 @@ import pandas as pd
 from collections import Counter
 from sklearn.manifold import TSNE
 import os
+import pyLDAvis
+from pyLDAvis import gensim as gs
+
 
 class Topic_Model:
     def __init__(self, k=3, embedding = None, saved_embedding_dir = None, verbose= False, embedding_batch_size=100):
@@ -115,8 +118,7 @@ class Topic_Model:
 
             # Get sentence level embedding from Bert
             vec_embedding = self.vectorize(sentences, token_lists, method='EMBEDDING')
-            print (vec_lda.shape)
-            print (vec_embedding.shape)
+
             # Concatenat them
             vec_lda_embedding = np.c_[vec_lda * self.gamma, vec_embedding]
             self.vec['LDA_EMBEDDING'] = vec_lda_embedding
@@ -341,6 +343,20 @@ class Topic_Model:
         #calling the visualization function
         get_employee_clusters(averaged_employee_features, cluster_titles, employee_titles, vis=vis_type, dir = self.dir)
 
+    def vis_pyldavis(self, token_lists):
+        '''
+
+        :param token_lists:
+        :return:
+        '''
+
+        id2word = corpora.Dictionary(token_lists)
+        corpus = [id2word.doc2bow(text) for text in token_lists]
+
+        # The visualization call is straight forward so no need to create a separate function for it in visualization.py
+        vis = gs.prepare(self.ldamodel, corpus, id2word)
+        pyLDAvis.show(vis)
+
     def vis_network(self,ids, sentences,ngram):
         '''
 
@@ -374,3 +390,21 @@ class Topic_Model:
         # call the visualization functions
 
         get_network(employee_cluster_frequency, employee_titles, cluster_titles, dir = self.dir)
+
+'''
+#read the previously processed data
+import pandas as pd
+data = pd.read_pickle("../output/preprocessed_data/use_this_data.pkl")
+sentences = list(data['sentences'])
+token_lists = list(data['token_list'])
+ids = list(data['id'])
+num_docs = len(ids)
+
+Verbose = False
+# Define the topic model object
+TopicModelObject = Topic_Model(k = 3, verbose = Verbose, embedding = None,
+                               saved_embedding_dir = "output/preprocessed_data/bert_embeddings.json", embedding_batch_size = 100)
+
+# Fit the topic model
+TopicModelObject.fit(sentences, token_lists)
+'''
