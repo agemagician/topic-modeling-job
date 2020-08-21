@@ -2,7 +2,7 @@
 from models.embeddings_model import get_embeddings
 from models.autoencoder_model import Autoencoder
 from utilities.utils import generate_n_gram
-from utilities.visualizations import get_employee_clusters, get_wordcloud, get_network
+from utilities.visualizations import get_employee_clusters, get_wordcloud, get_network, create_hist
 from datetime import datetime
 import gensim
 from gensim import corpora, models
@@ -390,21 +390,36 @@ class Topic_Model:
         # call the visualization functions
 
         get_network(employee_cluster_frequency, employee_titles, cluster_titles, dir = self.dir)
+    def quick_stats(self, ids):
+        '''
+        returns the distribution of employees in each cluster
+        :param ids:
+        :param cluster_label_per_document:
+        :return:
+        '''
 
-'''
-#read the previously processed data
-import pandas as pd
-data = pd.read_pickle("../output/preprocessed_data/use_this_data.pkl")
-sentences = list(data['sentences'])
-token_lists = list(data['token_list'])
-ids = list(data['id'])
-num_docs = len(ids)
+        unique_ids = list(set(ids))
 
-Verbose = False
-# Define the topic model object
-TopicModelObject = Topic_Model(k = 3, verbose = Verbose, embedding = None,
-                               saved_embedding_dir = "output/preprocessed_data/bert_embeddings.json", embedding_batch_size = 100)
+        #get cluster prediction for all employees
+        if self.method == 'LDA':
+            feature_vector = self.vec[self.method]
+            # for each sentence, find out the cluster it belongs to
+            cluster_label_per_document = np.argmax(np.array(feature_vector), axis=1)
+        else:
+            cluster_label_per_document = np.array(self.cluster_model.labels_)
+        # create a dataframe to store the frequence per cluster for each employee.
+        df_id_cluster = pd.DataFrame(0,
+                                     index=pd.Index(unique_ids, name='Employee id'),
+                                     columns=pd.Index([i for i in range(self.k)], name='Clusters'))
 
-# Fit the topic model
-TopicModelObject.fit(sentences, token_lists)
-'''
+        # There are multiple entries per employee so an employee can belong to multiple clusters
+        for i, _id in enumerate(ids):
+            df_id_cluster[cluster_label_per_document[i]][_id] = 1
+
+        #shows how many employees belong to each cluster
+        employee_cluster_frequency = np.sum(df_id_cluster.to_numpy(), axis=0)
+
+        # shows percentage of employees belong to each cluster
+        employee_cluster_frequency = (employee_cluster_frequency/len(unique_ids))*100
+        print (employee_cluster_frequency)
+        create_hist(employee_cluster_frequency)

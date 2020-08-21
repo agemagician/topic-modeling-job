@@ -212,6 +212,33 @@ def get_network(employee_cluster_frequency, dict_employee_titles, cluster_titles
     4. todo: save a snapshot of the network
     '''
 
+def create_hist(employee_cluster_frequency):
+
+    paths = []
+
+    '''
+    1. Bar chart for Employee distribution per cluster
+    '''
+    y = list(employee_cluster_frequency)
+    x = ['Cluster {}'.format(str(i+1)) for i in range(len(y))]
+
+    fig = go.Figure(data=[go.Bar(x=x , y=y)])
+    fig.update_layout(
+        title_text='Employee Distribution per cluster',  # title of plot
+        xaxis_title_text='Clusters',  # xaxis label
+        yaxis_title_text='Employees percentage',  # yaxis label
+
+    )
+    fig.show()
+
+    #hist_path = 'flaskApp/static/quick_stat.jpeg'
+    #paths.append("quick_stat.jpeg")
+    #fig.write_image(hist_path)
+
+    '''
+    2. Further quick stats charts
+    '''
+    #return paths
 
 
 

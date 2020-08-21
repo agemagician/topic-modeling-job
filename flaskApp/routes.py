@@ -64,14 +64,20 @@ def precompute():
 def pyldavis():
     if request.method == 'POST':
         TopicModelObject.vis_pyldavis(token_lists)
-        return redirect(url_for('results'))
+        return render_template('results.html', algorithm=algorithm, images = images)
+
+@app.route('/quick_stats', methods=['POST'])
+def quick_stats():
+    if request.method == 'POST':
+        TopicModelObject.quick_stats(ids)
+        return render_template('results.html', algorithm=algorithm, images = images)
 
 
 @app.route("/result" , methods=['GET', 'POST'])
 def result():
 
     #define few global variables to be used throughout
-    global sentences, algorithm, TopicModelObject, token_lists, images
+    global sentences, algorithm, TopicModelObject, token_lists, images, ids
 
     #reading the configurations
     algorithm = dict()
@@ -79,7 +85,7 @@ def result():
     algorithm['base'] = str(request.form.get('selected_base_model'))
     algorithm['k'] = int(request.form.get('selected_k'))
     algorithm['n_gram'] =int( request.form.get('selected_ngram'))
-    algorithm['visualization'] = visualizations[int(request.form.get('selected_vis2'))]['name']
+    algorithm['visualization'] = visualizations[int(request.form.get('selected_vis'))]['name']
 
     if request.form.get('selected_embedding') == 'none':
         algorithm['embedding'] = None
@@ -129,6 +135,7 @@ def result():
     #constructing path to the images inside the static folder
     images = [{'id': i+1, 'path': TopicModelObject.dir + '/' + image}
                         for i , image in enumerate(images)]
+
 
     return render_template('results.html', algorithm=algorithm, images = images)
 
