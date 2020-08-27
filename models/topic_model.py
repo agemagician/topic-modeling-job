@@ -357,39 +357,6 @@ class Topic_Model:
         vis = gs.prepare(self.ldamodel, corpus, id2word)
         pyLDAvis.show(vis)
 
-    def vis_network(self,ids, sentences,ngram):
-        '''
-
-        :param ids:
-        :param sentences:
-        :param ngram:
-        :return:
-        '''
-
-        # create a dataframe to store the frequence per cluster for each employee.
-        unique_ids = set(ids)
-        df_id_cluster = pd.DataFrame(0,
-                                     index=pd.Index(unique_ids, name='Employee id'),
-                                     columns=pd.Index([i for i in range(self.k)], name='Clusters'))
-        # There are multiple entries per employee so an employee can belong to multiple clusters
-        labels = self.get_labels()
-        for i, _id in enumerate(ids):
-            df_id_cluster[labels[i]][_id] += 1
-
-        employee_cluster_frequency = df_id_cluster.values.tolist()
-
-        # 1. get hover text for employee nodes
-
-        # constructing hover text (all objectives belonging to that employee)
-        employee_titles = self.get_employee_text(sentences, ids)
-
-        # 2. get hover text for cluster nodes
-        # main topics for each cluster
-
-        cluster_titles = self.get_cluster_text(sentences,ngram)
-        # call the visualization functions
-
-        get_network(employee_cluster_frequency, employee_titles, cluster_titles, dir = self.dir)
     def quick_stats(self, ids):
         '''
         returns the distribution of employees in each cluster

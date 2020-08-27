@@ -9,7 +9,9 @@
 
 {% extends "layout.html" %}
 {% block content %}
+<div class="indent">
 <div class="home">
+
 <form class="form-inline" method="POST" action="{{ url_for('result') }}">
   <br class="form-group">
 
@@ -18,37 +20,50 @@
         <span class="input-group-addon"> <h3></h3></span>
 
 
-        <h1>Algorithm</h1>
-            <h2>Base Model </h2>
+        <h2>Algorithm</h2>
+
+        <table style="width:100%">
+          <th>
+              <th>
+            <h3>Base Model </h3>
             <select name="selected_base_model" class="selectpicker form-control">
               {% for base in base_models %}
               <option value="{{ base }}">{{ base }}</option>
               {% endfor %}
             </select>
+              </th>
 
-            <h2>Word Embedding </h2>
+            <th>
+                  <h3>Word Embedding </h3>
             <select name="selected_embedding" class="selectpicker form-control">
               {% for embedding in embeddings %}
               <option value="{{ embedding }}">{{ embedding }}</option>
               {% endfor %}
             </select>
+              </th>
 
-            <h2>Number of Clusters </h2>
+            <th>
+              <h3>Number of Clusters </h3>
             <select name="selected_k" class="selectpicker form-control">
               {% for k in num_clusters %}
               <option value="{{ k }}">{{ k }}</option>
               {% endfor %}
             </select>
+          </th>
 
-            <h1>Visualizations </h1>
-            <h2>N grams </h2>
+        <th>
+            <h3>N grams </h3>
             <select name="selected_ngram" class="selectpicker form-control">
               {% for grams in n_grams %}
               <option value="{{ grams }}">{{ grams }}</option>
               {% endfor %}
             </select>
 
-            <h2>Visualization Type </h2>
+          </th>
+          </tr>
+        </table>
+
+            <h2>Visualizations </h2>
     <p>
         <table style="width:100%">
           <tr>
@@ -57,7 +72,7 @@
 
                 <figure >
 
-                    <img src=" {{vis.path}}"  width="224" height="224" >
+                    <img src=" {{vis.path}}"  width="194" height="194" >
 
                 <figcaption>{{vis.name}}</figcaption>
                 </figure>
@@ -73,10 +88,10 @@
             </div>
 
       <br>
-    <button type="submit" class="button">Generate Clusters</button>
+    <button type="submit" class="button" style="margin: 0;position: absolute; left: 50%; -ms-transform: translateX(-50%); transform: translateX(-50%);">Generate Clusters</button>
 
 </form>
-
+</div>
 </div>
 {% endblock %}
 </body>

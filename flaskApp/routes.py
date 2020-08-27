@@ -7,9 +7,7 @@ import shutil
 
 #imports from my own classes
 from utilities.document_preprocessing import preprocess_documents
-
 from models.topic_model import Topic_Model
-
 from models.embeddings_model import get_embeddings
 
 @app.route('/', methods=['GET'])
@@ -60,18 +58,6 @@ def precompute():
 
     return render_template('precompute.html', filename=filename)
 
-@app.route('/pyldavis', methods=['POST'])
-def pyldavis():
-    if request.method == 'POST':
-        TopicModelObject.vis_pyldavis(token_lists)
-        return render_template('results.html', algorithm=algorithm, images = images)
-
-@app.route('/quick_stats', methods=['POST'])
-def quick_stats():
-    if request.method == 'POST':
-        TopicModelObject.quick_stats(ids)
-        return render_template('results.html', algorithm=algorithm, images = images)
-
 
 @app.route("/result" , methods=['GET', 'POST'])
 def result():
@@ -85,9 +71,12 @@ def result():
     algorithm['base'] = str(request.form.get('selected_base_model'))
     algorithm['k'] = int(request.form.get('selected_k'))
     algorithm['n_gram'] =int( request.form.get('selected_ngram'))
-    algorithm['visualization'] = visualizations[int(request.form.get('selected_vis'))]['name']
 
-    if request.form.get('selected_embedding') == 'none':
+
+    algorithm['visualization'] = visualizations[int(request.form.get('selected_vis'))]['name']
+    #no embeddings would be used automatically if pyLDAvis is used for visualization as it only works on LDA alone
+    if (request.form.get('selected_embedding') == 'none') or (algorithm['visualization'] == "LDA Vis"):
+
         algorithm['embedding'] = None
         embedding_path= None
     else:
@@ -111,13 +100,14 @@ def result():
 
     if algorithm['visualization'] == 'Word Cloud':
         # generating and saving the word clouds for the defined clusters
-        TopicModelObject.wordcloud(sentences,algorithm)
+        TopicModelObject.wordcloud(sentences, algorithm)
     elif "Employee Cluster" in algorithm['visualization']:
         # if visualization is Employee Clusters using plotly
         TopicModelObject.vis_employee_clusters(sentences, ids, algorithm['visualization'], algorithm['n_gram'])
+    elif algorithm['visualization'] == "LDA Vis":
+        TopicModelObject.vis_pyldavis(token_lists)
     else:
-        # Network visualization
-        TopicModelObject.vis_network(ids,sentences, algorithm['n_gram'])
+        pass
 
     # get list of all word cloud images from the directory
     images = os.listdir(TopicModelObject.dir)
@@ -149,8 +139,8 @@ num_clusters = [2,3,4,5]
 visualizations = [
     {'i': 0, 'name': "Employee Cluster 2D", 'path':'static/gui/cluster_2D.png'},
        {'i': 1, 'name': "Employee Cluster 3D", 'path':'static/gui/cluster_3D.png'},
-       {'i': 2, 'name': "Networks", 'path':'static/gui/network.png'},
-       {'i': 3, 'name': "Word Cloud", 'path':'static/gui/wordcloud.png'}
+       {'i': 2, 'name': "Word Cloud", 'path':'static/gui/wordcloud.png'},
+        {'i': 3, 'name': "LDA Vis", 'path':'static/gui/lda_vis.png'}
     ]
 
 #define the directory where data is stored temporarily
