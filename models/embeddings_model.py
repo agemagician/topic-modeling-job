@@ -11,7 +11,7 @@ for each sentence and saves it in a file
 # importing all necessary modules
 import pandas as pd
 import torch
-from transformers import XLNetTokenizer, XLNetModel, BertTokenizer, BertModel
+from transformers import XLNetTokenizer, XLNetModel, BertTokenizer, BertModel, XLMTokenizer, XLMModel, ElectraTokenizer, ElectraModel, AlbertTokenizer, AlbertForMaskedLM
 import os
 import json
 from datetime import datetime
@@ -23,7 +23,6 @@ from sentence_transformers import SentenceTransformer, util
 # nltk.download('punkt')
 
 ### Function Definations
-
 def preprocess(text_column, model_name=None):
     '''
     Takes in a pandas column containing text and preprocesses it.
@@ -45,6 +44,16 @@ def preprocess(text_column, model_name=None):
     elif model_name == 'xlnet':
         tokenizer = XLNetTokenizer.from_pretrained('xlnet-large-cased')
         pad_id = tokenizer.pad_token_id
+    elif model_name == 'xlm':
+        tokenizer = XLMTokenizer.from_pretrained('xlm-mlm-en-2048')
+        pad_id = tokenizer.pad_token_id
+    elif model_name == 'electra':
+        tokenizer = ElectraTokenizer.from_pretrained('google/electra-small-discriminator')
+        pad_id = tokenizer.pad_token_id
+    elif model_name == 'albert':
+        tokenizer = AlbertTokenizer.from_pretrained('albert-base-v2')
+        pad_id = tokenizer.pad_token_id
+
     else:
         print('Please Specify the appropriate model name.')
 
@@ -54,18 +63,11 @@ def preprocess(text_column, model_name=None):
     # define place holders
     preprocessed_indexes_column = []
 
-    # iterate through each sentence in the list
     max_length = 0
-    for text in text_column:
-        # iterate through each sentence in the paragraph, only one sentence in each paragraph
-
-        if model_name == 'bert':
-            text = "[CLS] " + text + " [SEP]"
-        elif model_name == 'xlnet':
-            text = text + " [SEP] [CLS]"
-        else:
-            text = text
-
+    for text in text_column:  # iterate through each objective
+        if len(text.split()) > 500:
+            text = text[:500]  # if the objective has more than 500 words, only take the first 500 words
+            print(len(text.split()))
         # tokenize the sentence into words using the model specific tokenizer
         tokenized_text = tokenizer.tokenize(text)
 
@@ -75,9 +77,7 @@ def preprocess(text_column, model_name=None):
 
         # keeping track of the maximum sequence length
         max_length = len(tokenized_text) if len(tokenized_text) > max_length else max_length
-
-        # for bert limiting the maximum length to 512.
-        #max_length = 512
+        print("Padding all objectives to be of length ", max_length)
 
     # pad the sequence to allow batch processing
     preprocessed_indexes_column = pad_sequences(preprocessed_indexes_column, max_length, pad_id)
@@ -108,7 +108,7 @@ def pad_sequences(data, max_length, pad_id):
 
 def generate_embedding(objectives, model_name, batch_size=100):
     '''
-    Takes in a pandas dataframe and generates embeddings for the text column
+    Takes in a pandas dataframe and generates embeddings for the text column using the hugging face implemented models
     - Inputs:
         pd_dataframe (pandas dataframe): The dataframe containing all text column and their ids
         model_name (str): name of the model to be used for generating embeddings
@@ -125,35 +125,45 @@ def generate_embedding(objectives, model_name, batch_size=100):
     elif model_name == 'xlnet':
         # Load pre-trained xlnet model (weights)
         model = XLNetModel.from_pretrained('xlnet-large-cased')
-
+    elif model_name == 'xlm':
+        # Load pre-trained xlm model (weights)
+        model = XLMModel.from_pretrained('xlm-mlm-en-2048')
+    elif model_name == 'electra':
+        # Load pre-trained electra model (weights)
+        model = ElectraModel.from_pretrained('google/electra-small-discriminator')
+    elif model_name == 'albert':
+        # Load pre-trained albert model (weights)
+        model = AlbertForMaskedLM.from_pretrained('albert-base-v2')
+    else:
+        print("Please select an implemented model name. {} doesn't exist".format(model_name))
+        return
 
     sentences_per_batch = batch_size
 
-    
-
-    #setting up the device
+    # setting up the device
     if torch.cuda.is_available():
         dev = "cuda:0"
     else:
         dev = "cpu"
     device = torch.device(dev)
-    print (device)
+    print(device)
 
     # Put the model in "evaluation" mode, meaning feed-forward operation.
     model.eval()
     model.to(device)
     num_sentences = len(objectives)
     sentence_embedding = []
-    
+
     if num_sentences > sentences_per_batch:
-        num_batches = num_sentences//sentences_per_batch
+        num_batches = num_sentences // sentences_per_batch
 
         for i in range(num_batches):
             start = i * sentences_per_batch
-            end = (i+1)* sentences_per_batch
-            if i == num_batches-1:
+            end = (i + 1) * sentences_per_batch
+            if i == num_batches - 1:
                 end = num_sentences
             mini_objective = list(objectives[start:end])
+
             # Convert inputs to PyTorch tensors
             tokens_tensor = torch.tensor([mini_objective]).squeeze()
             tokens_tensor = tokens_tensor.to(device)
@@ -168,9 +178,10 @@ def generate_embedding(objectives, model_name, batch_size=100):
 
             # Calculate the average of all k  token vectors and adding to the main list
             sentence_embedding += torch.mean(token_vecs, dim=1).tolist()
-            print ("Embedding for batch {} out of {} batches Completed.".format(i, num_batches))
+            print("Embedding for batch {} out of {} batches Completed.".format(i, num_batches))
     else:
         # Convert inputs to PyTorch tensors
+
         tokens_tensor = torch.tensor([objectives]).squeeze()
         tokens_tensor = tokens_tensor.to(device)
 
@@ -199,7 +210,10 @@ def generate_sentence_embeddings(objectives, model_name, batch_size=100):
 
     '''
 
-    model2transformer = {'bert': "bert-large-nli-stsb-mean-tokens"}
+    model2transformer = {'bert': 'sentence-transformers/bert-base-nli-mean-tokens',
+                         'roberta': 'sentence-transformers/roberta-large-nli-stsb-mean-tokens',
+                         # 'roberta-base':'roberta-base-nli-stsb-mean-tokens',
+                         'distilbert': 'distilbert-base-nli-stsb-mean-tokens'}
 
     # get the specfic model name for sentence transformer
     model_name = model2transformer[model_name]
@@ -234,7 +248,8 @@ def generate_sentence_embeddings(objectives, model_name, batch_size=100):
             print("Embedding for batch {} out of {} batches Completed.".format(i, num_batches))
     else:
 
-        encoded_layers  = embedder.encode(objectives, convert_to_tensor=True)
+        encoded_layers = embedder.encode(objectives, convert_to_tensor=True)
+
         sentence_embedding = encoded_layers.cpu().tolist()
 
     print("Our final sentence embedding vector of shape:", len(sentence_embedding))
@@ -274,8 +289,13 @@ def get_embeddings(model_name=None, file_name=None, sentences=None, saved_embedd
     pd_objectives['objectives'] = sentences
 
     # generate embeddings
-    if model_name == 'bert':  # use sentence transformer library for it
+
+    sentence_transformers_model = ['bert', 'roberta', 'roberta-base', 'distilbert']
+    hugging_face_models = ['xlnet', 'electra', 'xlm', 'albert']
+
+    if model_name in sentence_transformers_model:  # use sentence transformer library for it
         sentence_embedding = generate_sentence_embeddings(pd_objectives['objectives'], model_name, batch_size)
+
     else:  # for xlnet, use the hugging face library
         # do model specific preprocessing for embedding generation
         pd_objectives['objectives'] = preprocess(pd_objectives['objectives'], model_name)
