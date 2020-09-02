@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import plotly.graph_objects as go
+from sklearn import preprocessing
 
 #todo: move this function inside the topic model class
 def get_wordcloud(token_lists=None, topic=None, word_distribution=None, word_count_dict=None, dir = os.getcwd()):
@@ -61,10 +62,8 @@ def get_employee_clusters(averaged_employee_features, cluster_titles ,employee_t
             # plot all the employees belonging to a cluster using a new trace.
             features = np.stack(cluster_df['feature_vector_2d'].to_numpy())
 
-            # Normalize the features between 0 and 1 before visualization
-            min_ = features.min(axis=0)
-            max_ = features.max(axis=0)
-            features = (features - min_) / (max_ - min_)
+            # normalize the features between 0 and 1
+            features = preprocessing.normalize(features)
 
             # constructing hover text for all employees belonging to that cluster
             employee_titles_this_cluster = [employee_titles[emp] for emp in cluster_df.index.values]
@@ -96,11 +95,8 @@ def get_employee_clusters(averaged_employee_features, cluster_titles ,employee_t
             # plot all the employees belonging to a cluster using a new trace.
             features = np.stack(cluster_df['feature_vector_3d'].to_numpy())
 
-            # Normalize the features between 0 and 1 before visualization
-            min_ = features.min(axis=0)
-            max_ = features.max(axis=0)
-
-            features = (features - min_) / (max_ - min_)
+            # normalize the features between 0 and 1
+            features = preprocessing.normalize(features)
 
             # constructing hover text for all employees belonging to that cluster
             employee_titles_this_cluster = [employee_titles[emp] for emp in cluster_df.index.values]
@@ -129,33 +125,28 @@ def get_employee_clusters(averaged_employee_features, cluster_titles ,employee_t
     fig.write_image(path)
     print ("Saved Clusters to " , path)
 
-def create_hist(employee_cluster_frequency):
+def create_hist(x, title=None, x_title = None, y_title = None, save= False, dir = None):
 
-    paths = []
 
-    '''
-    1. Bar chart for Employee distribution per cluster
-    '''
-    y = list(employee_cluster_frequency)
-    x = ['Cluster {}'.format(str(i+1)) for i in range(len(y))]
-
-    fig = go.Figure(data=[go.Bar(x=x , y=y)])
+    fig = go.Figure(data=[go.Histogram(x=x)])
     fig.update_layout(
-        title_text='Employee Distribution per cluster',  # title of plot
-        xaxis_title_text='Clusters',  # xaxis label
-        yaxis_title_text='Employees percentage',  # yaxis label
+        title_text=title,  # title of plot
+        xaxis_title_text=x_title,  # xaxis label
+        yaxis_title_text=y_title,  # yaxis label
+        bargap=0.2,  # gap between bars of adjacent location coordinates
+        bargroupgap=0.1  # gap between bars of the same location coordinates
 
     )
     fig.show()
+    if save == True:
 
-    #hist_path = 'flaskApp/static/quick_stat.jpeg'
-    #paths.append("quick_stat.jpeg")
-    #fig.write_image(hist_path)
+        if dir:
+            hist_path = dir + title + '.jpeg'
+        else:
+            hist_path = title + '.jpeg'
 
-    '''
-    2. Further quick stats charts
-    '''
-    #return paths
+        fig.write_image(hist_path)
+
 
 
 

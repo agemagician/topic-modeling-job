@@ -2,7 +2,7 @@
 from models.embeddings_model import get_embeddings
 from models.autoencoder_model import Autoencoder
 from utilities.utils import generate_n_gram
-from utilities.visualizations import get_employee_clusters, get_wordcloud, get_network, create_hist
+from utilities.visualizations import get_employee_clusters, get_wordcloud,  create_hist
 from datetime import datetime
 import gensim
 from gensim import corpora, models

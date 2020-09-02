@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 from langdetect import detect
 import os
+from utilities.utils import length_analysis
 
 #downloads
 #nltk.download('crubadan')
@@ -99,8 +100,8 @@ def preprocess_word(s):
     """
     w_list = word_tokenize(s)
     w_list = f_punct(w_list)
-    w_list = f_noun(w_list)
-    w_list = f_stem(w_list)
+    #w_list = f_noun(w_list)
+    #w_list = f_stem(w_list)
     w_list = f_stopw(w_list)
 
     return w_list
@@ -122,15 +123,24 @@ def preprocess_documents(file=None, verbose = True, dr = 'output/preprocessed_da
 
     documents = pd.read_excel(file)
 
+
     # replace nans with empty spaces to avoid trouble in preprocessing
     documents = documents.replace(np.nan, '', regex=True)
+
+    # dropping all duplicates because the data has a lot of redundant rows
+    #documents.drop_duplicates(subset = ['User ID (anonymus)', 'Objective_Metric', 'Form Template Name'], inplace=True)
+    documents.drop_duplicates(inplace=True)
 
     id = documents['User ID (anonymus)']
     docs = documents['Objective_Name'].astype(str) + ' \n ' + documents['Objective_Description'].astype(str) + ' \n ' + \
                   documents['Objective_Metric'].astype(str)
+    #type cast to list for easier processing
+    docs = list(docs)
 
     #docs = documents['Objective_Name'].astype(str) + ' \n ' + documents['Objective_Metric'].astype(str)
 
+    # get a quick analysis on the number of words in each objective
+    #len_per_objective = length_analysis(docs)
     n_docs = len(docs)
 
     print('Preprocessing raw texts \n' )
@@ -139,7 +149,6 @@ def preprocess_documents(file=None, verbose = True, dr = 'output/preprocessed_da
     token_lists = []  # word level preprocessed
 
     id_drop = [] #place holder to save indexes for entries with non-english langauges to be dropped later.
-    keep_track_of_id = []
     for idx in range(n_docs):
         text = docs[idx]
 
@@ -156,18 +165,15 @@ def preprocess_documents(file=None, verbose = True, dr = 'output/preprocessed_da
 
         if  detected_language == 'en':
 
-            sentences = nltk.sent_tokenize(text)
-            for sentence in sentences:
-                sentence = preprocess_sent(sentence)
-                token_list = preprocess_word(sentence)
-                keep_track_of_id.append(id[idx])
-                if verbose:
-                    print ('\n')
-                    print (sentence)
-                    print ("Candidate Tokens: ", token_list)
+            text = preprocess_sent(text)
+            token_list = preprocess_word(text)
+            if verbose:
+                print ('\n')
+                print (text)
+                print ("Candidate Tokens: ", token_list)
 
-                sentences_list.append(sentence)
-                token_lists.append(token_list)
+            sentences_list.append(text)
+            token_lists.append(token_list)
         else:
             id_drop.append(idx)
 
@@ -176,14 +182,14 @@ def preprocess_documents(file=None, verbose = True, dr = 'output/preprocessed_da
         print("Objectives of following employees at the following indices are being dropped: ", id_drop)
 
 
-    id = id.drop([id.index[i] for i in id_drop])
+    ids = id.drop([id.index[i] for i in id_drop])
     print("Dropped {} entries with non english text".format(len(id_drop)))
 
     print('\n Preprocessing raw texts. Done!')
     
     #saving the preprocessing data in a file
     temp_df = pd.DataFrame()
-    temp_df['id'] = keep_track_of_id
+    temp_df['id'] = ids
     temp_df['sentences'] = sentences_list
     temp_df['token_list'] = token_lists
 

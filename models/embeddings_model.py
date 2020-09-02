@@ -16,6 +16,7 @@ import os
 import json
 from datetime import datetime
 from utilities.document_preprocessing import preprocess_documents
+from sentence_transformers import SentenceTransformer, util
 
 # needs to be run only once in the beginning
 
@@ -111,6 +112,7 @@ def generate_embedding(objectives, model_name, batch_size=100):
     - Inputs:
         pd_dataframe (pandas dataframe): The dataframe containing all text column and their ids
         model_name (str): name of the model to be used for generating embeddings
+        batch_size (int): batch size to use when generating embeddings for sentences
 
     - Output:
         sentence_embedding (tensor): tensor of shape n by 1024 where n is the number of sentence
@@ -120,11 +122,12 @@ def generate_embedding(objectives, model_name, batch_size=100):
     if model_name == 'bert':
         # Load pre-trained bert model (weights)
         model = BertModel.from_pretrained('bert-large-uncased')
-        sentences_per_batch = batch_size
     elif model_name == 'xlnet':
         # Load pre-trained xlnet model (weights)
         model = XLNetModel.from_pretrained('xlnet-large-cased')
-        sentences_per_batch = batch_size
+
+
+    sentences_per_batch = batch_size
 
     
 
@@ -183,7 +186,62 @@ def generate_embedding(objectives, model_name, batch_size=100):
     return (sentence_embedding)
 
 
-def get_embeddings(model_name = None, file_name =None, sentences= None, saved_embedding_dir = None, batch_size = 100 , dr = None):
+def generate_sentence_embeddings(objectives, model_name, batch_size=100):
+    '''
+    Takes in a pandas dataframe and generates embeddings for the text column using sentence_transformer
+    - Inputs:
+        pd_dataframe (pandas dataframe): The dataframe containing all text column and their ids
+        model_name (str): name of the model to be used for generating embeddings
+        batch_size (int): batch size to use when generating embeddings for sentences
+
+    - Output:
+        sentence_embedding (tensor): tensor of shape n by 1024 where n is the number of sentence
+
+    '''
+
+    model2transformer = {'bert': "bert-large-nli-stsb-mean-tokens"}
+
+    # get the specfic model name for sentence transformer
+    model_name = model2transformer[model_name]
+    embedder = SentenceTransformer(model_name)
+    sentences_per_batch = batch_size
+
+    # setting up the device
+    if torch.cuda.is_available():
+        dev = "cuda:0"
+    else:
+        dev = "cpu"
+    device = torch.device(dev)
+    print(device)
+
+    num_sentences = len(objectives)
+    sentence_embedding = []
+
+    if num_sentences > sentences_per_batch:
+        num_batches = num_sentences // sentences_per_batch
+
+        for i in range(num_batches):
+            start = i * sentences_per_batch
+            end = (i + 1) * sentences_per_batch
+            if i == num_batches - 1:
+                end = num_sentences
+            mini_objective = list(objectives[start:end])
+
+            encoded_layers = embedder.encode(mini_objective, convert_to_tensor=True)
+
+            # Calculate the average of all k  token vectors and adding to the main list
+            sentence_embedding += encoded_layers.cpu().tolist()
+            print("Embedding for batch {} out of {} batches Completed.".format(i, num_batches))
+    else:
+
+        encoded_layers  = embedder.encode(objectives, convert_to_tensor=True)
+        sentence_embedding = encoded_layers.cpu().tolist()
+
+    print("Our final sentence embedding vector of shape:", len(sentence_embedding))
+    return (sentence_embedding)
+
+
+def get_embeddings(model_name=None, file_name=None, sentences=None, saved_embedding_dir=None, batch_size=100, dr=None):
     '''
     wrapper functions which generates the the embeddings for the text in input file and saves in a json file
     - Inputs:
@@ -205,26 +263,30 @@ def get_embeddings(model_name = None, file_name =None, sentences= None, saved_em
             return sentence_embedding
 
     if file_name is None and sentences is None:
-        print ('Either a file name or a list of sentences must be provided')
+        print('Either a file name or a list of sentences must be provided')
         return
 
     pd_objectives = pd.DataFrame()
     # Read file if file path is provided, read the data from there and preprocess it using the pre-defined utility function
     if file_name is not None:
-        sentences, _ = preprocess_documents(file=file_name, verbose=False)
+        _, sentences, _ = preprocess_documents(file=file_name, verbose=False)
 
     pd_objectives['objectives'] = sentences
 
-    # do model specific preprocessing for embedding generation
-    pd_objectives['objectives'] = preprocess(pd_objectives['objectives'], model_name)
-
     # generate embeddings
-    sentence_embedding = generate_embedding(pd_objectives['objectives'], model_name, batch_size)
+    if model_name == 'bert':  # use sentence transformer library for it
+        sentence_embedding = generate_sentence_embeddings(pd_objectives['objectives'], model_name, batch_size)
+    else:  # for xlnet, use the hugging face library
+        # do model specific preprocessing for embedding generation
+        pd_objectives['objectives'] = preprocess(pd_objectives['objectives'], model_name)
+
+        sentence_embedding = generate_embedding(pd_objectives['objectives'], model_name, batch_size)
 
     # save embeddings
 
     if dr == None:
-        output_folder = 'output/embeddings/' +  str(datetime.now().strftime("%Y_%m_%d_%H_%M_%S") ) + '_'  + model_name + '/'
+        output_folder = 'output/embeddings/' + str(
+            datetime.now().strftime("%Y_%m_%d_%H_%M_%S")) + '_' + model_name + '/'
     else:
         output_folder = dr
     file_name = output_folder + model_name + '_embeddings.json'
@@ -235,4 +297,4 @@ def get_embeddings(model_name = None, file_name =None, sentences= None, saved_em
 
     return sentence_embedding
 
-#get_embeddings("bert", "../data/PMP_Skills_Matching_Pilot_2018_2019_small.xlsx", batch_size = 100)
+#get_embeddings(model_name="bert", file_name="../data/PMP_Skills_Matching_Pilot_2018_2019_small.xlsx", batch_size = 100)

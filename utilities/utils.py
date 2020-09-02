@@ -1,6 +1,7 @@
 import nltk
 from stop_words import get_stop_words
 from nltk.stem.porter import PorterStemmer
+from utilities.visualizations import create_hist
 
 def generate_n_gram(sentences, n=2,separator = '-',  keep_stopwords = True, stem=False, keep_nouns_only = False):
     '''
@@ -66,3 +67,20 @@ def generate_n_gram(sentences, n=2,separator = '-',  keep_stopwords = True, stem
                 ngram_token_with_frequency[feature] = 1
 
     return ngram_token_with_frequency
+
+def length_analysis(objectives):
+    '''
+    given a list of all objective(text -> str), it returns a list with their respective lengths and also plots it ina histogram
+    :param objectives: list of all objective
+    :return: length (list) list of integers representing the number of words in each objective
+    '''
+    objectives = list(objectives)
+    length = [len(obj.split()) for obj in objectives]
+
+    print ("Shortest Objective is of length ", min(length))
+    print("Largest Objective is of length ", max(length))
+
+    # use the function from utilities.visualizations
+    create_hist(length,'Number of words per objective', 'Length of Objective', 'Number of Objectives' , save=True )
+
+    return length
