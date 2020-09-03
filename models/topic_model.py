@@ -17,7 +17,7 @@ from pyLDAvis import gensim as gs
 
 
 class Topic_Model:
-    def __init__(self, k=3, embedding = None, saved_embedding_dir = None, verbose= False, embedding_batch_size=100):
+    def __init__(self, base = 'LDA', k=3, embedding = None, saved_embedding_dir = None, verbose= False, embedding_batch_size=100):
         """
         :param k: number of topics
         """
@@ -26,19 +26,20 @@ class Topic_Model:
         self.dictionary = None
         self.corpus = None
         self.cluster_model = None
-        self.ldamodel = None
+        self.basemodel = None
         self.vec = {}
         self.gamma = 15  # parameter for reletive importance of lda
         self.embedding = None
+        self.base = base
 
         if embedding is None:
-            self.method = "LDA"
+            self.method = self.base
             self.id = self.method + '_k_' + str(self.k) + '_' + datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         else:
-            self.method = "LDA_EMBEDDING"
+            self.method = self.base + "_EMBEDDING"
             self.embedding = embedding
             self.id = self.method + '_k_' +  str(self.k) + '_' + self.embedding + '_' + datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-        
+
         self.dir = 'output/{}/{}/'.format(self.method, self.id)
         #create the directory for saving outputs
         if not os.path.exists(self.dir):
@@ -54,49 +55,62 @@ class Topic_Model:
         Get vector representations from selected methods
         """
 
-        if method == 'LDA':
 
-            print('Getting vector representations for LDA ')
+        if method == 'LSI' or method == 'LDA':
+
+            print('Getting vector representations for {} '.format(self.base))
 
             # turn tokenized documents into a id <-> term dictionary
             self.dictionary = corpora.Dictionary(token_lists)
             if self.verbose:
-                print ("Dictionary used for LDA \n" )
+                print ("Dictionary used for {} \n".format(self.base) )
                 for key, value in  self.dictionary.items():
                     print (key, value)
             # convert tokenized documents into a document-term matrix
             self.corpus = [self.dictionary.doc2bow(text) for text in token_lists]
             if self.verbose:
-                print ("\n Corpus used for LDA \n" )
+                print ("\n Corpus used for {} \n".format(self.base) )
                 for c in self.corpus:
                     print (c)
 
-            self.ldamodel = gensim.models.ldamodel.LdaModel(self.corpus, num_topics=self.k, id2word=self.dictionary,
-                                                                passes=20)
+            if self.base == 'LSI':
+                self.basemodel = gensim.models.lsimodel.LsiModel(self.corpus, num_topics=self.k, id2word=self.dictionary)
+            elif self.base == 'LDA':
+                self.basemodel = gensim.models.ldamodel.LdaModel(self.corpus, num_topics=self.k, id2word=self.dictionary,
+                                                passes=20)
 
-            def get_vec_lda(model, corpus, k):
+            def get_vec_base(model, corpus, k):
                 """
-                Get the LDA vector representation (probabilistic topic assignments for all documents)
-                :return: vec_lda with dimension: (n_doc * n_topic)
+                Get the Lsi vector representation (probabilistic topic assignments for all documents)
+                :return: vec_lsi with dimension: (n_doc * n_topic)
                 """
                 n_doc = len(corpus)
-                vec_lda = np.zeros((n_doc, k))
-                for i in range(n_doc):
-                    # get the distribution for the i-th document in corpus
-                    for topic, prob in model.get_document_topics(corpus[i]):
-                        vec_lda[i, topic] = prob
+                vec_base = np.zeros((n_doc, k))
 
-                return vec_lda
+                if self.base == 'LSI':
+                    for i in range(n_doc):
+                        for topic, lsi_score in self.basemodel[self.corpus[i]]:
+                            vec_base[i, topic] = lsi_score
 
-            vec = get_vec_lda(self.ldamodel, self.corpus, self.k)
+                elif self.base == 'LDA':
+
+                    for i in range(n_doc):
+                        # get the distribution for the i-th document in corpus
+                        for topic, prob in model.get_document_topics(corpus[i]):
+                            vec_base[i, topic] = prob
+
+                return vec_base
+
+            vec = get_vec_base(self.basemodel, self.corpus, self.k)
             if self.verbose:
-                print ("\n \n Shape of LDA Vector: ", vec.shape)
+                print ("\n \n Shape of {} Vector: {}".format(self.base, vec.shape) )
                 print (vec)
-                print ('\n According to LDA, the top words for each topic should be, ')
-                print (self.get_top_words_lda(6))
-            print('Getting vector representations for LDA. Done! \n')
-            self.vec["LDA"] = vec
+                print ('\n According to {}, the top words for each topic should be, '.format(self.base))
+                print (self.get_top_words_base(6))
+            print('Getting vector representations for {}. Done! \n'.format(self.base))
+            self.vec[self.base] = vec
             return vec
+
 
         elif method == 'EMBEDDING':
 
@@ -111,37 +125,38 @@ class Topic_Model:
 
             return vec
 
-        elif method == 'LDA_EMBEDDING':
+        elif '_EMBEDDING' in method:
 
-            # Get probability of a text belonging to a class from LDA
-            vec_lda = self.vectorize(sentences, token_lists, method='LDA')
+            # Get probability of a text belonging to a class from LDA/LSI
+
+            vec_base = self.vectorize(sentences, token_lists, method=self.base)
 
             # Get sentence level embedding from Bert
             vec_embedding = self.vectorize(sentences, token_lists, method='EMBEDDING')
 
             # Concatenat them
-            vec_lda_embedding = np.c_[vec_lda * self.gamma, vec_embedding]
-            self.vec['LDA_EMBEDDING'] = vec_lda_embedding
+            vec_base_embedding = np.c_[vec_base * self.gamma, vec_embedding]
+            self.vec[self.method] = vec_base_embedding
 
             if self.verbose:
-                print ("\n Concatenating both LDA(topic distribution per topic) and "
+                print ("\n Concatenating both {}(topic distribution per topic) and "
                        "{}(sentence embeddings) vectors gives a new vector of shape {}"
-                       " \n".format(self.embedding, vec_lda_embedding.shape))
+                       " \n".format(self.base, self.embedding, vec_base_embedding.shape))
 
             if not self.AE:
 
                 # Learn the latent representation of data
-                input_size = vec_lda.shape[1] + vec_embedding.shape[1]
+                input_size = vec_base.shape[1] + vec_embedding.shape[1]
                 self.AE = Autoencoder(latent_dim=32, input_dim=input_size, epochs=5)
 
                 if self.verbose:
                     print ("Using the following autoencoder to learn the latent representation of the vector")
 
                 print('Fitting Autoencoder')
-                self.AE.fit(vec_lda_embedding)
+                self.AE.fit(vec_base_embedding)
                 print('Fitting Autoencoder Done!')
 
-            vec = self.AE.model.predict(vec_lda_embedding)
+            vec = self.AE.model.predict(vec_base_embedding)
             if self.verbose:
                 print ('Latent Representation size: ', np.array(vec).shape)
             return vec
@@ -158,8 +173,8 @@ class Topic_Model:
         self.cluster_model = m_clustering(self.k)
 
         self.vec[self.method] = self.vectorize(sentences, token_lists, self.method)
-        if self.method == "LDA":
-            print (" LDA Done.")
+        if self.method == "LDA" or self.method == "LSI":
+            print (" {} Done.".format(self.base))
             return
         print('Clustering the latent representations')
         
@@ -167,17 +182,23 @@ class Topic_Model:
 
         print('Clustering. Done!')
 
-    def get_top_words_lda(self, top=5):
+    def get_top_words_base(self, top=5):
 
-        if not self.ldamodel:
-            print("LDA model has not been trained yet")
+        if not self.basemodel:
+            print("Base model has not been trained yet")
             return None
 
         self.top_topics = dict()
 
-        for k in range(self.k):
-            topics = self.ldamodel.show_topic(topicid=k, topn=top)
-            self.top_topics[k] = topics
+        if self.base == 'LDA':
+            for k in range(self.k):
+                topics = self.basemodel.show_topic(topicid=k, topn=top)
+                self.top_topics[k] = topics
+        elif self.base == 'LSI':
+            for k in range(self.k):
+                topics = self.basemodel.show_topic(topicno=k, topn=top)
+                self.top_topics[k] = topics
+
         return self.top_topics
 
     def compress_features(self, ids):
@@ -283,8 +304,8 @@ class Topic_Model:
                 get_wordcloud(topic=i, word_count_dict=ngram_token_with_frequency, dir=self.dir)
 
     def get_labels(self):
-        if self.method == 'LDA':
-            return np.argmax(self.vec['LDA'], axis=1)
+        if self.method == 'LDA' or self.method == 'LSI':
+            return np.argmax(self.vec[self.base], axis=1)
         else:
             return self.cluster_model.labels_
     def get_cluster_text(self, sentences, ngram):
@@ -390,3 +411,4 @@ class Topic_Model:
         employee_cluster_frequency = (employee_cluster_frequency/len(unique_ids))*100
         print (employee_cluster_frequency)
         create_hist(employee_cluster_frequency)
+
