@@ -76,11 +76,34 @@ def length_analysis(objectives):
     '''
     objectives = list(objectives)
     length = [len(obj.split()) for obj in objectives]
+    length.sort()
 
     print ("Shortest Objective is of length ", min(length))
     print("Largest Objective is of length ", max(length))
 
+    # how many objectives have a length of x
+    count_frequency_dict = {x: length.count(x) for x in length}
+
+    # find the maximum allowed length of the objective (in terms of word cound)
+    # by finding 'allowed_len' which is the upper cap of the 98% of the objectives lens.
+    #since we have to pad the sentences when getting embeddings, some outliers have a very long length which is noise for
+    # all the remaining 98% of the objectives
+    allowed_percentage = 0.98
+    total_length = len(objectives) # count of total objectives
+    allowed_count = total_length*allowed_percentage
+    allowed_length = 0 # objectives word count would be truncated at this length
+    count = 0
+    for key, value in count_frequency_dict.items():
+        if count >= allowed_count: # if the count has reached the allowed percentage of total length
+            allowed_length = key
+            break
+        count += value
+
+
     # use the function from utilities.visualizations
     create_hist(length,'Number of words per objective', 'Length of Objective', 'Number of Objectives' , save=True )
 
-    return length
+
+
+
+    return allowed_length

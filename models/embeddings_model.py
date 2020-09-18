@@ -65,19 +65,17 @@ def preprocess(text_column, model_name=None):
 
     max_length = 0
     for text in text_column:  # iterate through each objective
-        if len(text.split()) > 500:
-            text = text[:500]  # if the objective has more than 500 words, only take the first 500 words
-            print(len(text.split()))
+
         # tokenize the sentence into words using the model specific tokenizer
         tokenized_text = tokenizer.tokenize(text)
 
         # Map the token strings to their vocabulary indices.
-        indexed_tokens = tokenizer.encode(tokenized_text, add_special_tokens=False)
+        indexed_tokens = tokenizer.encode(tokenized_text, add_special_tokens=False,padding=True)
         preprocessed_indexes_column.append(indexed_tokens)
 
         # keeping track of the maximum sequence length
         max_length = len(tokenized_text) if len(tokenized_text) > max_length else max_length
-        print("Padding all objectives to be of length ", max_length)
+    print("Padding all objectives to be of length ", max_length)
 
     # pad the sequence to allow batch processing
     preprocessed_indexes_column = pad_sequences(preprocessed_indexes_column, max_length, pad_id)
@@ -193,7 +191,7 @@ def generate_embedding(objectives, model_name, batch_size=100):
         # token_vecs` is a tensor with shape [n x k x 1024]
         token_vecs = encoded_layers[0]
         sentence_embedding = torch.mean(token_vecs, dim=1).tolist()
-    print("Our final sentence embedding vector of shape:", len(sentence_embedding))
+    print("Our final sentence embedding vector of shape:", len(sentence_embedding), len(sentence_embedding[0]))
     return (sentence_embedding)
 
 
@@ -210,8 +208,8 @@ def generate_sentence_embeddings(objectives, model_name, batch_size=100):
 
     '''
 
-    model2transformer = {'bert': 'sentence-transformers/bert-base-nli-mean-tokens',
-                         'roberta': 'sentence-transformers/roberta-large-nli-stsb-mean-tokens',
+    model2transformer = {'bert': 'bert-base-nli-mean-tokens',
+                         'roberta': 'roberta-large-nli-stsb-mean-tokens',
                          # 'roberta-base':'roberta-base-nli-stsb-mean-tokens',
                          'distilbert': 'distilbert-base-nli-stsb-mean-tokens'}
 
@@ -252,11 +250,11 @@ def generate_sentence_embeddings(objectives, model_name, batch_size=100):
 
         sentence_embedding = encoded_layers.cpu().tolist()
 
-    print("Our final sentence embedding vector of shape:", len(sentence_embedding))
+    print("Our final sentence embedding vector of shape:", len(sentence_embedding), len(sentence_embedding[0]))
     return (sentence_embedding)
 
 
-def get_embeddings(model_name=None, file_name=None, sentences=None, saved_embedding_dir=None, batch_size=100, dr=None):
+def get_embeddings(model_name=None, file_name=None, sentences=None, saved_embedding_dir=None, batch_size=None, dr=None):
     '''
     wrapper functions which generates the the embeddings for the text in input file and saves in a json file
     - Inputs:
@@ -294,12 +292,15 @@ def get_embeddings(model_name=None, file_name=None, sentences=None, saved_embedd
     hugging_face_models = ['xlnet', 'electra', 'xlm', 'albert']
 
     if model_name in sentence_transformers_model:  # use sentence transformer library for it
+        if batch_size == None:
+            batch_size = 500
         sentence_embedding = generate_sentence_embeddings(pd_objectives['objectives'], model_name, batch_size)
 
     else:  # for xlnet, use the hugging face library
         # do model specific preprocessing for embedding generation
         pd_objectives['objectives'] = preprocess(pd_objectives['objectives'], model_name)
-
+        if batch_size == None:
+            batch_size = 100
         sentence_embedding = generate_embedding(pd_objectives['objectives'], model_name, batch_size)
 
     # save embeddings

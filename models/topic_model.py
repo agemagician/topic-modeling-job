@@ -11,16 +11,29 @@ import numpy as np
 import pandas as pd
 from collections import Counter
 from sklearn.manifold import TSNE
-import os
+import torch
 import pyLDAvis
 from pyLDAvis import gensim as gs
+import os
+
+#temp
+from utilities.document_preprocessing import preprocess_documents
+
+
 
 
 class Topic_Model:
-    def __init__(self, base = 'LDA', k=3, embedding = None, saved_embedding_dir = None, verbose= False, embedding_batch_size=100):
-        """
-        :param k: number of topics
-        """
+    def __init__(self, base = 'LDA', k=3, use_AE = True, gamma = 1, embedding = None, saved_embedding_dir = None, verbose= False, embedding_batch_size=None):
+        '''
+
+        :param base (str): Probabilistic algorithm to be used. possible values: 'LDA'
+        :param k (int): expected number of clusters in the data
+        :param AE (bool): whether or not to use AutoEncoder
+        :param embedding (str): which embedding to use. possible values 'bert', 'albert', 'roberta', 'xlnet', 'electra'
+        :param saved_embedding_dir(str): path to the precomputed directory
+        :param verbose (bool):
+        :param embedding_batch_size (str): batch size to use when computed embeddings for a large data
+        '''
         self.verbose = verbose
         self.k = k
         self.dictionary = None
@@ -28,13 +41,21 @@ class Topic_Model:
         self.cluster_model = None
         self.basemodel = None
         self.vec = {}
-        self.gamma = 15  # parameter for reletive importance of lda
+        self.gamma = gamma # parameter for reletive importance of lda
         self.embedding = None
         self.base = base
 
-        if embedding is None:
+        if embedding is None and base is None:
+            print ("Either enter a valid embedding or a valid base algorithm")
+            return
+        elif embedding is None:
             self.method = self.base
             self.id = self.method + '_k_' + str(self.k) + '_' + datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+        elif self.base is None:
+            self.method =  "EMBEDDING"
+            self.embedding = embedding
+            self.id = self.method + '_k_' + str(self.k) + '_' + self.embedding + '_' + datetime.now().strftime(
+                "%Y_%m_%d_%H_%M_%S")
         else:
             self.method = self.base + "_EMBEDDING"
             self.embedding = embedding
@@ -49,6 +70,7 @@ class Topic_Model:
         self.top_topics = None
         self.saved_embedding_dir = saved_embedding_dir
         self.embedding_batch_size = embedding_batch_size
+        self.use_AE = use_AE
 
     def vectorize(self, sentences, token_lists, method=None):
         """
@@ -123,12 +145,12 @@ class Topic_Model:
                 sentence_embedding = get_embeddings(saved_embedding_dir=self.saved_embedding_dir)
             vec = np.array(sentence_embedding)
 
+            self.vec['EMBEDDING'] = vec
             return vec
 
         elif '_EMBEDDING' in method:
 
             # Get probability of a text belonging to a class from LDA/LSI
-
             vec_base = self.vectorize(sentences, token_lists, method=self.base)
 
             # Get sentence level embedding from Bert
@@ -136,32 +158,40 @@ class Topic_Model:
 
             # Concatenat them
             vec_base_embedding = np.c_[vec_base * self.gamma, vec_embedding]
-            self.vec[self.method] = vec_base_embedding
+            self.vec[method] = vec_base_embedding
 
             if self.verbose:
                 print ("\n Concatenating both {}(topic distribution per topic) and "
                        "{}(sentence embeddings) vectors gives a new vector of shape {}"
                        " \n".format(self.base, self.embedding, vec_base_embedding.shape))
 
-            if not self.AE:
+            return vec_base_embedding
 
-                # Learn the latent representation of data
-                input_size = vec_base.shape[1] + vec_embedding.shape[1]
-                self.AE = Autoencoder(latent_dim=32, input_dim=input_size, epochs=5)
+    def fit_AE(self, vec, epoch):
+        # If we want to use an autoencoder to learn latent representation
+        if self.use_AE:
 
-                if self.verbose:
-                    print ("Using the following autoencoder to learn the latent representation of the vector")
+            # Learn the latent representation of data
+            input_size = vec.shape[1]
+            self.AE = Autoencoder(latent_dim=32, input_dim=input_size, epochs=epoch, batch_size=32)
 
-                print('Fitting Autoencoder')
-                self.AE.fit(vec_base_embedding)
-                print('Fitting Autoencoder Done!')
-
-            vec = self.AE.model.predict(vec_base_embedding)
             if self.verbose:
-                print ('Latent Representation size: ', np.array(vec).shape)
-            return vec
+                print("Using the following autoencoder to learn the latent representation of the vector")
 
-    def fit(self, sentences, token_lists):
+            print('Fitting Autoencoder')
+
+            self.AE.fit(vec)
+            print('Fitting Autoencoder Done!')
+
+        vec = self.AE.model.predict(vec)
+        if self.verbose:
+            print('Latent Representation size: ', np.array(vec).shape)
+        if torch.cuda.is_available():
+            return vec.cpu().numpy()
+        else:
+            return vec.numpy()
+
+    def fit(self, sentences, token_lists, epoch = None):
         """
         Fit the topic model for selected method given the preprocessed data
 
@@ -172,13 +202,17 @@ class Topic_Model:
         m_clustering = KMeans
         self.cluster_model = m_clustering(self.k)
 
-        self.vec[self.method] = self.vectorize(sentences, token_lists, self.method)
+        self.vectorize(sentences, token_lists, self.method)
         if self.method == "LDA" or self.method == "LSI":
             print (" {} Done.".format(self.base))
-            return
-        print('Clustering the latent representations')
-        
-        self.cluster_model.fit(self.vec[self.method].cpu())
+            return # no AE used
+
+        if self.use_AE: # used only if there is an embedding used
+            self.vec['ENCODER'] = self.fit_AE(self.vec[self.method], epoch=epoch)
+            print('Clustering the latent representations')
+            self.cluster_model.fit(self.vec['ENCODER'])
+        else: # cluster the embedding representation
+            self.cluster_model.fit(self.vec['EMBEDDING'])
 
         print('Clustering. Done!')
 
@@ -220,13 +254,16 @@ class Topic_Model:
 
         # Getting feature vectors and cluster labels assigned by the model
         if self.method == 'LDA':
-            feature_vector = self.vec[self.method]
+            feature_vector = self.vec['LDA']
             # for each sentence, find out the cluster it belongs to
             cluster_label_per_document = np.argmax(np.array(feature_vector), axis=1)
         else:
             cluster_label_per_document = np.array(self.cluster_model.labels_)
-            feature_vector = self.vec[self.method]
-            feature_vector = feature_vector.cpu().numpy()
+            feature_vector = self.vec['ENCODER']
+            if torch.cuda.is_available():
+                feature_vector = feature_vector.cpu().numpy()
+            else:
+                feature_vector = feature_vector.numpy()
 
         unique_ids = list(set(ids))
         num_employee = len(unique_ids)
@@ -412,3 +449,30 @@ class Topic_Model:
         print (employee_cluster_frequency)
         create_hist(employee_cluster_frequency)
 
+#temp
+
+data_file = "output/preprocessed_data/job/use_this_data_10000.pkl"
+
+import pickle5 as pickle
+
+with (open(data_file, "rb")) as openfile:
+    data = pickle.load(openfile)
+
+sentences = list(data['sentences'])
+token_lists = list(data['token_list'])
+ids = list(data['id'])
+
+sentences = sentences[0:1000]
+ids = ids[0:1000]
+token_lists = token_lists[0:1000]
+
+
+num_docs = len(ids)
+
+# Define the topic model object
+TopicModelObject = Topic_Model(base = None, k = 5, verbose = False, embedding = 'bert',
+                               saved_embedding_dir = None,
+                               embedding_batch_size = 500, use_AE= True)
+TopicModelObject.fit(sentences, token_lists, epoch=5)
+
+print (TopicModelObject)

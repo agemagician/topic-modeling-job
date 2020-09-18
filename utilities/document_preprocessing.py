@@ -68,7 +68,7 @@ def f_noun(w_list):
     :param w_list: word list to be processed
     :return: w_list with only nouns selected
     """
-    return [word for (word, pos) in nltk.pos_tag(w_list) if (pos[:2] == 'NN' or pos[:2] == 'JJ')]
+    return [word for (word, pos) in nltk.pos_tag(w_list) if (pos[:2] == 'NN')] #or pos[:2] == 'JJ')]
 
 def f_stem(w_list):
     """
@@ -100,7 +100,7 @@ def preprocess_word(s):
     """
     w_list = word_tokenize(s)
     w_list = f_punct(w_list)
-    #w_list = f_noun(w_list)
+    w_list = f_noun(w_list)
     #w_list = f_stem(w_list)
     w_list = f_stopw(w_list)
 
@@ -108,12 +108,18 @@ def preprocess_word(s):
 
 
 # wrapper function to preprocess all the sentences in a document
-def preprocess_documents(file=None, verbose = True, dr = 'output/preprocessed_data/'):
-    """
-    Read the file and preprocess the data
+def preprocess_documents(file=None,
+                         verbose = False, dr = 'output/preprocessed_data/', subset=None):
+    '''
+        Read the file and preprocess the data
 
-    file(str): path to the input file
-    """
+    :param file(str): path to the input file
+    :param id_col: column to read for the ids
+    :param text_index (list): columns to read for text. concatinate text from all these column
+    :param verbose:
+    :param dr: path to where the .pkl file should be saved
+    :return:
+    '''
 
     if file is None:
         print ('Please provide a valid file path')
@@ -121,26 +127,44 @@ def preprocess_documents(file=None, verbose = True, dr = 'output/preprocessed_da
 
     print('Reading the file')
 
-    documents = pd.read_excel(file)
+    _, file_extension = os.path.splitext(file)
 
+    if file_extension == '.csv':
+        documents = pd.read_csv(file)
+    elif file_extension == '.xlsx':
+        documents = pd.read_excel(file)
+    else:
+        print ("File extension not known. Please provide a .csv or .xlsx file")
+        return
 
     # replace nans with empty spaces to avoid trouble in preprocessing
     documents = documents.replace(np.nan, '', regex=True)
 
     # dropping all duplicates because the data has a lot of redundant rows
-    #documents.drop_duplicates(subset = ['User ID (anonymus)', 'Objective_Metric', 'Form Template Name'], inplace=True)
     documents.drop_duplicates(inplace=True)
+    #documents.drop_duplicates(inplace=True, subset=['Objective_Metric'])
 
-    id = documents['User ID (anonymus)']
-    docs = documents['Objective_Name'].astype(str) + ' \n ' + documents['Objective_Description'].astype(str) + ' \n ' + \
-                  documents['Objective_Metric'].astype(str)
+    #id = documents['User ID (anonymus)']
+    #docs = documents['Objective_Name'].astype(str) + ' \n ' + documents['Objective_Description'].astype(str) + ' \n ' + \
+    #              documents['Objective_Metric'].astype(str)
+
+    id = documents['Id']
+    docs = documents['Title'].astype(str) + ' \n ' + documents['FullDescription'].astype(str)
+
+
     #type cast to list for easier processing
     docs = list(docs)
-
-    #docs = documents['Objective_Name'].astype(str) + ' \n ' + documents['Objective_Metric'].astype(str)
+    if subset != None:
+        id = id[:subset]
+        docs = docs[:subset]
 
     # get a quick analysis on the number of words in each objective
-    #len_per_objective = length_analysis(docs)
+    allowed_length = length_analysis(docs) # max num of words used from each objective
+
+    if allowed_length > 500: # because a lot of embeddings don't allow to get an embedding for text with more than 500 words
+        print("Allowed length according to data is {} but since it is greater than 500, reducing it to 500".format(allowed_length))
+        allowed_length = 500
+
     n_docs = len(docs)
 
     print('Preprocessing raw texts \n' )
@@ -152,18 +176,23 @@ def preprocess_documents(file=None, verbose = True, dr = 'output/preprocessed_da
     for idx in range(n_docs):
         text = docs[idx]
 
+        if (idx % 1000 == 0):
+            print (idx)
+
         try:
             detected_language = detect(text)
 
         except Exception as e:
-            #print (e.msg)
+
             print ("Couldn't detect the language of the text on index {}".format(idx))
-            print (text)
             # donot include undetected languages and drop their ids
             id_drop.append(idx)
             continue
 
         if  detected_language == 'en':
+
+            if len(text.split()) > allowed_length:
+                text = text[:allowed_length]  # if the objective has more than 500 words, only take the first 500 words
 
             text = preprocess_sent(text)
             token_list = preprocess_word(text)
@@ -197,6 +226,9 @@ def preprocess_documents(file=None, verbose = True, dr = 'output/preprocessed_da
     if not os.path.exists(dr):
         os.makedirs(dr)
     temp_df.to_pickle(dr + "use_this_data.pkl")
+
     return id, sentences_list, token_lists
 
-#preprocess_documents("../data/PMP_Skills_Matching_Pilot_2018_2019_small.xlsx")
+#preprocess_documents("/home/anum/Downloads/25828_32915_compressed_Train_rev1.csv/Train_rev1.csv",  dr = "../output/preprocessed_data/job/", subset = 10000 )
+
+#preprocess_documents("../data/PMP_Skills_Matching_Pilot_2018_2019.xlsx" )
