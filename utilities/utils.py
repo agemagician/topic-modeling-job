@@ -1,15 +1,88 @@
 import nltk
 from stop_words import get_stop_words
 from nltk.stem.porter import PorterStemmer
+from nltk.stem.wordnet import WordNetLemmatizer
 from utilities.visualizations import create_hist
+from collections import Counter
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+import pandas as pd
 
-def generate_n_gram(sentences, n=2,separator = '-',  keep_stopwords = True, stem=False, keep_nouns_only = False):
+def clean_topics_from_clusters(topics):
+    K = len(topics)
+
+    topics_to_delete = []
+    for _ in range(K):
+        topics_to_delete.append([])
+    # interate over the topics of all clusters
+    for k, topic_k in enumerate(topics):
+        for word_k, count_k in topic_k.items():
+            #for each word in the topic, check if it exists in the other clusters
+            for ind_j, topic_j in enumerate(topics[k+1:K]):
+                if word_k in topic_j.keys(): # if the word exists in other clusters too
+
+                    if topic_k[word_k] > topic_j[word_k]: #the word has more frequency in initial cluster
+                        topics_to_delete[ind_j+k+1].append(word_k)
+                    elif topic_k[word_k] < topic_j[word_k]: # topic has less frequency in initial cluster
+                        topics_to_delete[k].append(word_k) # so we delete it from initial cluster
+
+
+    topics_clean = []
+    for i , topic in enumerate(topics):
+        for word in topics_to_delete[i]:
+            if word in topic.keys():
+                del topic[word]
+        topics_clean.append(topic)
+
+
+    ## use tf-idf to discard non-unqiue / common words from cluster
+    '''
+    tfidf_sentences = []
+    for topic in topics:
+        clean_sentence = ' '.join(word for word in topic)
+        tfidf_sentences.append(clean_sentence)
+
+    tfidf = TfidfVectorizer()
+    tfidf_vec = tfidf.fit_transform(tfidf_sentences)
+    tfidf_features = tfidf.get_feature_names()
+
+    pd_tfidf_vec = pd.DataFrame.sparse.from_spmatrix(tfidf_vec)
+    tfidf_topics = []
+    for k in range(K):
+        k_topics = np.array(pd_tfidf_vec.iloc[[k]])
+        top_k_topic_ind = np.argsort(k_topics)
+        top_k_topic_ind = top_k_topic_ind[:,-50:]
+
+        #using the ids above, get feature names and append them the list
+        topic_k = []
+        for top in top_k_topic_ind[0]:
+            topic_k.append(tfidf_features[int(top)])
+        tfidf_topics.append(topic_k)
+
+
+
+    tfidf_topics_clean = []
+    for i , topic in enumerate(tfidf_topics):
+        tfidf_topic = dict()
+        for word in topic:
+            if word in topics[i].keys():
+                tfidf_topic[word] = topics[i][word]
+        tfidf_topics_clean.append(tfidf_topic)
+    '''
+    return topics_clean
+    #return tfidf_topics_clean
+    #return tfidf_topics
+
+
+
+def generate_n_gram(sentences, n=2,separator = '-',  keep_stopwords = True, stem=False, keep_nouns_only = False, top = 30):
     '''
     personal thoughts: A very brain consuming function I had written in a while.
 
     Given a list of sentences, it generates a list of all n-grams
     :param sentences: a list of sentences to generate n-grams of
     :param n: (int) gram value
+    :param top (int): top number of words to be used
     :return: n_gram_per_sentence: (list) a list of list (which corresponds to each sentence) and contains n-gram token
     features of the respective sentence
     '''
@@ -27,15 +100,15 @@ def generate_n_gram(sentences, n=2,separator = '-',  keep_stopwords = True, stem
     insufficient_count_for_feature = n-1
 
     for sent in sentences:
-        n_gram_per_sentence = []
+
         tokenized_sent = nltk.word_tokenize(sent)
 
         if keep_stopwords == False:
             tokenized_sent = [word for word in tokenized_sent if word not in stop_words]
 
         if stem == True:
-            p_stemmer = PorterStemmer()
-            tokenized_sent = [p_stemmer.stem(word) for word in tokenized_sent]
+            wnl = WordNetLemmatizer()
+            tokenized_sent = [wnl.lemmatize(word) for word in tokenized_sent]
 
         if keep_nouns_only == True:
             tokenized_sent = [word for (word, pos) in nltk.pos_tag(tokenized_sent) if pos[:2] == 'NN']
@@ -53,20 +126,11 @@ def generate_n_gram(sentences, n=2,separator = '-',  keep_stopwords = True, stem
                     if i < n-1:
                         feature += separator
 
-                n_gram_per_sentence.append(feature)
-        n_grams_all_sentences.append(n_gram_per_sentence)
+                n_grams_all_sentences.append(feature)
 
-    #todo: replace this with a counter maybe?
-    ngram_token_with_frequency = dict()
 
-    for sentence in n_grams_all_sentences:
-        for feature in sentence:
-            if feature in ngram_token_with_frequency.keys():
-                ngram_token_with_frequency[feature] += 1
-            else:
-                ngram_token_with_frequency[feature] = 1
-
-    return ngram_token_with_frequency
+    ngram_token_with_frequency = Counter(n_grams_all_sentences).most_common()
+    return dict(ngram_token_with_frequency)
 
 def length_analysis(objectives):
     '''
@@ -107,3 +171,6 @@ def length_analysis(objectives):
 
 
     return allowed_length
+
+#t =[[1,55,3,6,9,2], [1,5,7,3,2,9], [23, 12,66,32,8,4,], [11,44,55,18,30,888]]
+#clean_topics_from_clusters(t)

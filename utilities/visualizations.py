@@ -6,6 +6,7 @@ import os
 import plotly.graph_objects as go
 from sklearn import preprocessing
 
+
 #todo: move this function inside the topic model class
 def get_wordcloud(token_lists=None, topic=None, word_distribution=None, word_count_dict=None, dir = os.getcwd()):
     """
@@ -25,11 +26,10 @@ def get_wordcloud(token_lists=None, topic=None, word_distribution=None, word_cou
     #LDA
     elif word_distribution is not None:
         tokens = str()
-        for item in word_distribution:
-            word = item[0]
-            dist = item[1]
+        for word, dist in word_distribution.items():
+
             # from probability to actually numbers the word appears in the document
-            word_occurance = int (dist * 1000 )
+            word_occurance = int (dist * 100 )
             tokens += ' '.join([''.join(word) for _ in range(word_occurance)])
             tokens += ' '
 

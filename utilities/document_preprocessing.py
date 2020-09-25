@@ -8,7 +8,7 @@ import numpy as np
 from langdetect import detect
 import os
 from utilities.utils import length_analysis
-
+from nltk.stem.wordnet import WordNetLemmatizer
 #downloads
 #nltk.download('crubadan')
 
@@ -76,9 +76,10 @@ def f_stem(w_list):
     :return: w_list with stemming
     """
     # stemming if doing word-wise
-    p_stemmer = PorterStemmer()
-    return [p_stemmer.stem(word) for word in w_list]
-
+    #p_stemmer = PorterStemmer()
+    #return [p_stemmer.stem(word) for word in w_list]
+    wnl = WordNetLemmatizer()
+    return [wnl.lemmatize(word) for word in w_list]
 
 
 def f_stopw(w_list):
@@ -101,7 +102,7 @@ def preprocess_word(s):
     w_list = word_tokenize(s)
     w_list = f_punct(w_list)
     w_list = f_noun(w_list)
-    #w_list = f_stem(w_list)
+    w_list = f_stem(w_list)
     w_list = f_stopw(w_list)
 
     return w_list

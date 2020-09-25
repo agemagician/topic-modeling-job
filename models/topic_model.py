@@ -1,7 +1,7 @@
 # Importing the required python modules
 from models.embeddings_model import get_embeddings
 from models.autoencoder_model import Autoencoder
-from utilities.utils import generate_n_gram
+from utilities.utils import generate_n_gram, clean_topics_from_clusters
 from utilities.visualizations import get_employee_clusters, get_wordcloud,  create_hist
 from datetime import datetime
 import gensim
@@ -16,12 +16,12 @@ import pyLDAvis
 from pyLDAvis import gensim as gs
 import os
 
-#temp
+
+import nltk
+nltk.download('wordnet')
+
+
 from utilities.document_preprocessing import preprocess_documents
-
-
-
-
 class Topic_Model:
     def __init__(self, base = 'LDA', k=3, use_AE = True, gamma = 1, embedding = None, saved_embedding_dir = None, verbose= False, embedding_batch_size=None):
         '''
@@ -173,7 +173,7 @@ class Topic_Model:
 
             # Learn the latent representation of data
             input_size = vec.shape[1]
-            self.AE = Autoencoder(latent_dim=32, input_dim=input_size, epochs=epoch, batch_size=32)
+            self.AE = Autoencoder(latent_dim=32, input_dim=input_size, epochs=epoch, batch_size=16)
 
             if self.verbose:
                 print("Using the following autoencoder to learn the latent representation of the vector")
@@ -191,7 +191,7 @@ class Topic_Model:
         else:
             return vec.numpy()
 
-    def fit(self, sentences, token_lists, epoch = None):
+    def fit(self, sentences, token_lists, epoch = 5):
         """
         Fit the topic model for selected method given the preprocessed data
 
@@ -449,9 +449,15 @@ class Topic_Model:
         print (employee_cluster_frequency)
         create_hist(employee_cluster_frequency)
 
-#temp
+#file = "/home/anum/Downloads/25828_32915_compressed_Train_rev1.csv/Train_rev1.csv"
 
-data_file = "output/preprocessed_data/job/use_this_data_10000.pkl"
+
+#ids, sentences, token_lists = preprocess_documents(file, verbose = False,
+#                                                   dr = "../output/preprocessed_data/job/",
+#                                                   subset = 5000)
+
+
+data_file = "../output/preprocessed_data/job/use_this_data_5000.pkl"
 
 import pickle5 as pickle
 
@@ -462,17 +468,64 @@ sentences = list(data['sentences'])
 token_lists = list(data['token_list'])
 ids = list(data['id'])
 
-sentences = sentences[0:1000]
-ids = ids[0:1000]
-token_lists = token_lists[0:1000]
+#sentences = sentences[0:200]
+#ids = ids[0:200]
+#token_lists = token_lists[0:200]
 
 
 num_docs = len(ids)
 
 # Define the topic model object
-TopicModelObject = Topic_Model(base = None, k = 5, verbose = False, embedding = 'bert',
-                               saved_embedding_dir = None,
-                               embedding_batch_size = 500, use_AE= True)
+TopicModelObject = Topic_Model(base = None, k = 3, verbose = False, embedding = 'bert',
+                               saved_embedding_dir = 'output/embeddings/bert_job_5000/bert_embeddings.json',
+                               embedding_batch_size = 500, use_AE= False)
 TopicModelObject.fit(sentences, token_lists, epoch=5)
 
-print (TopicModelObject)
+# Getting indexes of sentences belonging to each cluster
+sentence_label_dict = dict()
+
+if TopicModelObject.method == 'LDA':
+    labels = np.argmax(TopicModelObject.vec['LDA'], axis=1)
+else:
+    labels = TopicModelObject.cluster_model.labels_
+
+for label in set(labels):
+    sentence_label_dict[label] = [idx for idx, l in enumerate(labels) if l == label]
+
+
+
+### Top words from LDA
+if TopicModelObject.method == 'LDA':
+
+    lda_class_distribution = TopicModelObject.vec['LDA']
+    labels = np.argmax(lda_class_distribution, axis=1)
+
+    for k, cluster_word_distribution in TopicModelObject.get_top_words_lda(top=100).items():
+
+        cluster_word_distribution_dict = dict()
+        for item in cluster_word_distribution:
+            cluster_word_distribution_dict[item[0]] = item[1]
+        get_wordcloud(dir=TopicModelObject.dir, word_distribution=cluster_word_distribution_dict, topic=k)
+# Get top words from autoencoder (LDA + Embeddings) and create word clouds on n grams
+else:
+
+    grams = 1
+    for ng in range(grams):
+        topic_words = []
+        print("WordClouds for {} grams".format(str(ng + 1)))
+        # get topic words for all clusters
+        for i in range(TopicModelObject.k):
+            k_sentences = np.array(sentences)[sentence_label_dict[i]]
+            ngram_token_with_frequency = generate_n_gram(k_sentences, n=ng + 1, separator='-',
+                                                         keep_stopwords=False, stem=True, keep_nouns_only=True,
+                                                         top=100)
+            topic_words.append(ngram_token_with_frequency)
+
+        # remove simliar words from clusters
+        topic_words = clean_topics_from_clusters(topics=topic_words)
+
+        # generate wordclouds
+        for i in range(TopicModelObject.k):
+            get_wordcloud(topic=i, word_count_dict=topic_words[i], dir=TopicModelObject.dir)
+
+print ('halt')
