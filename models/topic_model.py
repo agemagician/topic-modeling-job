@@ -1,7 +1,7 @@
 # Importing the required python modules
 from models.embeddings_model import get_embeddings
 from models.autoencoder_model import Autoencoder
-from utilities.utils import generate_n_gram, clean_topics_from_clusters
+from utilities.utils import generate_n_gram
 from utilities.visualizations import get_employee_clusters, get_wordcloud,  create_hist
 from datetime import datetime
 import gensim
@@ -15,7 +15,8 @@ import torch
 import pyLDAvis
 from pyLDAvis import gensim as gs
 import os
-
+from sklearn.metrics import silhouette_score
+from gensim.models.coherencemodel import CoherenceModel
 
 import nltk
 nltk.download('wordnet')
@@ -173,7 +174,7 @@ class Topic_Model:
 
             # Learn the latent representation of data
             input_size = vec.shape[1]
-            self.AE = Autoencoder(latent_dim=32, input_dim=input_size, epochs=epoch, batch_size=16)
+            self.AE = Autoencoder(latent_dim=32, input_dim=input_size, epochs=epoch, batch_size=64)
 
             if self.verbose:
                 print("Using the following autoencoder to learn the latent representation of the vector")
@@ -199,6 +200,7 @@ class Topic_Model:
         """
 
         # use kmeans clustering to cluster the latent representations
+        self.lda_token_lists = token_lists
         m_clustering = KMeans
         self.cluster_model = m_clustering(self.k)
 
@@ -215,6 +217,8 @@ class Topic_Model:
             self.cluster_model.fit(self.vec['EMBEDDING'])
 
         print('Clustering. Done!')
+        print ("Silhouette Score for the clusters is")
+        print(self.get_silhouette())
 
     def get_top_words_base(self, top=5):
 
@@ -449,83 +453,54 @@ class Topic_Model:
         print (employee_cluster_frequency)
         create_hist(employee_cluster_frequency)
 
-#file = "/home/anum/Downloads/25828_32915_compressed_Train_rev1.csv/Train_rev1.csv"
+    def get_coherence(self,topics = None,  token_lists = None , measure='c_v'):
+        """
+        Get model coherence from gensim.models.coherencemodel
+        :param model: Topic_Model object
+        :param token_lists: token lists of docs
+        :param topics: topics as top words
+        :param measure: coherence metrics
+        :return: coherence score
+        """
+        if self.method == 'LDA':
+            cm = CoherenceModel(model=self.basemodel, texts= self.lda_token_lists, corpus=self.corpus,
+                                dictionary=self.dictionary,
+                                coherence=measure)
+        else:
 
+            if topics is None or token_lists is None:
+                print ("Parameters missing, cannot compute coherence score for the model")
+                return
+            dictionary = corpora.Dictionary(token_lists)
 
-#ids, sentences, token_lists = preprocess_documents(file, verbose = False,
-#                                                   dr = "../output/preprocessed_data/job/",
-#                                                   subset = 5000)
+            # convert tokenized documents into a document-term matrix
+            corpus = [dictionary.doc2bow(text) for text in token_lists]
 
+            cm = CoherenceModel(topics=topics, texts=token_lists, corpus=corpus, dictionary=dictionary,
+                                coherence=measure)
 
-data_file = "../output/preprocessed_data/job/use_this_data_5000.pkl"
+        return cm.get_coherence()
 
-import pickle5 as pickle
+    def get_silhouette(self):
+        """
+        Get silhouette score from model. Not applicable for LDA
 
-with (open(data_file, "rb")) as openfile:
-    data = pickle.load(openfile)
+        Silhouette refers to a method of interpretation and validation of consistency within clusters of data.
+        The technique provides a succinct graphical representation of how well each object has been classified.
+        The silhouette value is a measure of how similar an object is to its own cluster compared to other clusters
+        :return: silhouette score
 
-sentences = list(data['sentences'])
-token_lists = list(data['token_list'])
-ids = list(data['id'])
+        The best value is 1 and the worst value is -1. Values near 0 indicate overlapping clusters.
+        Negative values generally indicate that a sample has been assigned to the wrong cluster, as a different cluster is more similar.
+        """
+        if self.method == 'LDA':
+            print ("Silhouette Score doesn't work with LDA")
+            return
 
-#sentences = sentences[0:200]
-#ids = ids[0:200]
-#token_lists = token_lists[0:200]
+        lbs = self.get_labels()
+        if self.use_AE:
+            vec = self.vec['ENCODER']
+        else:
+            vec = self.vec[self.method]
 
-
-num_docs = len(ids)
-
-# Define the topic model object
-TopicModelObject = Topic_Model(base = None, k = 3, verbose = False, embedding = 'bert',
-                               saved_embedding_dir = 'output/embeddings/bert_job_5000/bert_embeddings.json',
-                               embedding_batch_size = 500, use_AE= False)
-TopicModelObject.fit(sentences, token_lists, epoch=5)
-
-# Getting indexes of sentences belonging to each cluster
-sentence_label_dict = dict()
-
-if TopicModelObject.method == 'LDA':
-    labels = np.argmax(TopicModelObject.vec['LDA'], axis=1)
-else:
-    labels = TopicModelObject.cluster_model.labels_
-
-for label in set(labels):
-    sentence_label_dict[label] = [idx for idx, l in enumerate(labels) if l == label]
-
-
-
-### Top words from LDA
-if TopicModelObject.method == 'LDA':
-
-    lda_class_distribution = TopicModelObject.vec['LDA']
-    labels = np.argmax(lda_class_distribution, axis=1)
-
-    for k, cluster_word_distribution in TopicModelObject.get_top_words_lda(top=100).items():
-
-        cluster_word_distribution_dict = dict()
-        for item in cluster_word_distribution:
-            cluster_word_distribution_dict[item[0]] = item[1]
-        get_wordcloud(dir=TopicModelObject.dir, word_distribution=cluster_word_distribution_dict, topic=k)
-# Get top words from autoencoder (LDA + Embeddings) and create word clouds on n grams
-else:
-
-    grams = 1
-    for ng in range(grams):
-        topic_words = []
-        print("WordClouds for {} grams".format(str(ng + 1)))
-        # get topic words for all clusters
-        for i in range(TopicModelObject.k):
-            k_sentences = np.array(sentences)[sentence_label_dict[i]]
-            ngram_token_with_frequency = generate_n_gram(k_sentences, n=ng + 1, separator='-',
-                                                         keep_stopwords=False, stem=True, keep_nouns_only=True,
-                                                         top=100)
-            topic_words.append(ngram_token_with_frequency)
-
-        # remove simliar words from clusters
-        topic_words = clean_topics_from_clusters(topics=topic_words)
-
-        # generate wordclouds
-        for i in range(TopicModelObject.k):
-            get_wordcloud(topic=i, word_count_dict=topic_words[i], dir=TopicModelObject.dir)
-
-print ('halt')
+        return silhouette_score(vec, lbs)
