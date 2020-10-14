@@ -131,14 +131,9 @@ class Autoencoder():
 
         for epoch in range(self.num_epochs):
 
-            for i in range(num_batches):
+            if self.batch_size > data_length:
 
-                start = i * self.batch_size
-                end = (i + 1) * self.batch_size
-                if i == num_batches - 1:
-                    end = data_length
-
-                data = X[start:end]
+                data = X
                 d = torch.tensor(data)
                 d = torch.autograd.Variable(d)
                 d = d.unsqueeze(0)
@@ -152,6 +147,28 @@ class Autoencoder():
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+            else:
+                for i in range(num_batches):
+
+                    start = i * self.batch_size
+                    end = (i + 1) * self.batch_size
+                    if i == num_batches - 1:
+                        end = data_length
+
+                    data = X[start:end]
+                    d = torch.tensor(data)
+                    d = torch.autograd.Variable(d)
+                    d = d.unsqueeze(0)
+                    d = d.to(device)
+
+                    # forward pass
+                    output = self.model(d.float())
+                    loss = criterion(output, d.float())
+
+                    # backward pass
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
 
             # log
             loss = loss.item()

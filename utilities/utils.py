@@ -23,6 +23,8 @@ def dict_count_to_lol(topics):
             temp_cluster += [key for i in range(value)]
         lol_topics.append(temp_cluster)
     return lol_topics
+
+
 def clean_topics_from_clusters(topics):
     K = len(topics)
 
@@ -38,7 +40,7 @@ def clean_topics_from_clusters(topics):
             for ind_j, topic_j in enumerate(topics[k+1:K]):
                 if word_k in topic_j.keys(): # if the word exists in other clusters too
 
-                    if topic_k[word_k] > topic_j[word_k]: #the word has more frequency in initial cluster
+                    if topic_k[word_k] >= topic_j[word_k]: #the word has more frequency in initial cluster
                         topics_to_delete[ind_j+k+1].append(word_k)
                     elif topic_k[word_k] < topic_j[word_k]: # topic has less frequency in initial cluster
                         topics_to_delete[k].append(word_k) # so we delete it from initial cluster
@@ -139,7 +141,7 @@ def length_analysis(objectives):
     allowed_percentage = 0.98
     total_length = len(objectives) # count of total objectives
     allowed_count = total_length*allowed_percentage
-    allowed_length = 0 # objectives word count would be truncated at this length
+    allowed_length = 400 # objectives word count would be truncated at this length
     count = 0
     for key, value in count_frequency_dict.items():
         if count >= allowed_count: # if the count has reached the allowed percentage of total length

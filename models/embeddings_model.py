@@ -16,7 +16,8 @@ import os
 import json
 from datetime import datetime
 from utilities.document_preprocessing import preprocess_documents
-from sentence_transformers import SentenceTransformer, util
+from sentence_transformers import SentenceTransformer
+import numpy as np
 
 # needs to be run only once in the beginning
 
@@ -39,10 +40,10 @@ def preprocess(text_column, model_name=None):
 
     # Load pre-trained model tokenizer (vocabulary)
     if model_name == 'bert':
-        tokenizer = BertTokenizer.from_pretrained('bert-large-uncased')
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         pad_id = 0
     elif model_name == 'xlnet':
-        tokenizer = XLNetTokenizer.from_pretrained('xlnet-large-cased')
+        tokenizer = XLNetTokenizer.from_pretrained('xlnet-base-cased')
         pad_id = tokenizer.pad_token_id
     elif model_name == 'xlm':
         tokenizer = XLMTokenizer.from_pretrained('xlm-mlm-en-2048')
@@ -68,19 +69,35 @@ def preprocess(text_column, model_name=None):
 
         # tokenize the sentence into words using the model specific tokenizer
         tokenized_text = tokenizer.tokenize(text)
+        if len(tokenized_text) > 450:
+            tokenized_text = tokenized_text[0:450]
 
         # Map the token strings to their vocabulary indices.
-        indexed_tokens = tokenizer.encode(tokenized_text, add_special_tokens=False,padding=True)
+        indexed_tokens = tokenizer.encode(tokenized_text)
         preprocessed_indexes_column.append(indexed_tokens)
 
         # keeping track of the maximum sequence length
-        max_length = len(tokenized_text) if len(tokenized_text) > max_length else max_length
+        max_length = len(indexed_tokens) if len(indexed_tokens) > max_length else max_length
     print("Padding all objectives to be of length ", max_length)
-
     # pad the sequence to allow batch processing
     preprocessed_indexes_column = pad_sequences(preprocessed_indexes_column, max_length, pad_id)
     return preprocessed_indexes_column
 
+def convert_id_to_token(indexed_tokens,model_name):
+
+    if model_name == 'bert':
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    elif model_name == 'xlnet':
+        tokenizer = XLNetTokenizer.from_pretrained('xlnet-base-cased')
+    elif model_name == 'xlm':
+        tokenizer = XLMTokenizer.from_pretrained('xlm-mlm-en-2048')
+    elif model_name == 'electra':
+        tokenizer = ElectraTokenizer.from_pretrained('google/electra-small-discriminator')
+    elif model_name == 'albert':
+        tokenizer = AlbertTokenizer.from_pretrained('albert-base-v2')
+
+    word_tokens = [tokenizer.convert_ids_to_tokens(indexed_token) for indexed_token in indexed_tokens]
+    return word_tokens
 
 def pad_sequences(data, max_length, pad_id):
     '''
@@ -119,19 +136,19 @@ def generate_embedding(objectives, model_name, batch_size=100):
 
     if model_name == 'bert':
         # Load pre-trained bert model (weights)
-        model = BertModel.from_pretrained('bert-large-uncased')
+        model = BertModel.from_pretrained('bert-base-uncased', output_attentions=True)
     elif model_name == 'xlnet':
         # Load pre-trained xlnet model (weights)
-        model = XLNetModel.from_pretrained('xlnet-large-cased')
+        model = XLNetModel.from_pretrained('xlnet-base-cased', output_attentions=True)
     elif model_name == 'xlm':
         # Load pre-trained xlm model (weights)
-        model = XLMModel.from_pretrained('xlm-mlm-en-2048')
+        model = XLMModel.from_pretrained('xlm-mlm-en-2048', output_attentions=True)
     elif model_name == 'electra':
         # Load pre-trained electra model (weights)
-        model = ElectraModel.from_pretrained('google/electra-small-discriminator')
+        model = ElectraModel.from_pretrained('google/electra-small-discriminator', output_attentions=True)
     elif model_name == 'albert':
         # Load pre-trained albert model (weights)
-        model = AlbertForMaskedLM.from_pretrained('albert-base-v2')
+        model = AlbertForMaskedLM.from_pretrained('albert-base-v2', output_attentions=True)
     else:
         print("Please select an implemented model name. {} doesn't exist".format(model_name))
         return
@@ -151,6 +168,7 @@ def generate_embedding(objectives, model_name, batch_size=100):
     model.to(device)
     num_sentences = len(objectives)
     sentence_embedding = []
+    attention_layers = []
 
     if num_sentences > sentences_per_batch:
         num_batches = num_sentences // sentences_per_batch
@@ -176,6 +194,14 @@ def generate_embedding(objectives, model_name, batch_size=100):
 
             # Calculate the average of all k  token vectors and adding to the main list
             sentence_embedding += torch.mean(token_vecs, dim=1).tolist()
+
+            attention_layer = [al.tolist() for al in encoded_layers[-1]]
+            attention_layer = np.array(attention_layer)
+            if len(attention_layers) == 0:
+                attention_layers = attention_layer
+            else:
+                attention_layers = np.concatenate((attention_layers, attention_layer), axis = 1)
+
             print("Embedding for batch {} out of {} batches Completed.".format(i, num_batches))
     else:
         # Convert inputs to PyTorch tensors
@@ -191,8 +217,13 @@ def generate_embedding(objectives, model_name, batch_size=100):
         # token_vecs` is a tensor with shape [n x k x 1024]
         token_vecs = encoded_layers[0]
         sentence_embedding = torch.mean(token_vecs, dim=1).tolist()
+
+        attention_layers = [al.tolist() for al in encoded_layers[-1]]
+        attention_layers = np.array(attention_layers)
+
     print("Our final sentence embedding vector of shape:", len(sentence_embedding), len(sentence_embedding[0]))
-    return (sentence_embedding)
+    print("And the corresponding attention vector of shape:", attention_layers.shape)
+    return sentence_embedding, attention_layers
 
 
 def generate_sentence_embeddings(objectives, model_name, batch_size=100):
@@ -254,13 +285,15 @@ def generate_sentence_embeddings(objectives, model_name, batch_size=100):
     return (sentence_embedding)
 
 
-def get_embeddings(model_name=None, file_name=None, sentences=None, saved_embedding_dir=None, batch_size=None, dr=None):
+def get_embeddings(model_name=None, file_name=None, sentences=None, saved_embedding_dir=None, batch_size=None, dr=None,
+                   saved_attention_dir = None):
     '''
     wrapper functions which generates the the embeddings for the text in input file and saves in a json file
     - Inputs:
         file_name (str): string pointing to the file to be read
         model_name (str): name of the model to be used for generating embeddings
         saved_embedding_dir (str): path to json file, if the precomputed embedding needs to be used.
+        saved_attention_dir (str): path to json file, if the precomputed attention needs to be used.
         sentences (list of list): sentences, if data has been read previously
         bath_size (int): batch size to use when generating the embeddings
         dr (str): folder path where the embedding should be stored. if not given, the default path is used
@@ -270,10 +303,17 @@ def get_embeddings(model_name=None, file_name=None, sentences=None, saved_embedd
 
     '''
 
+    #load presaved embedding
     if saved_embedding_dir is not None:
         with open(saved_embedding_dir) as json_file:
             sentence_embedding = json.load(json_file)
             return sentence_embedding
+
+    # load presaved attention
+    if saved_attention_dir is not None:
+        with open(saved_attention_dir) as json_file:
+            sentence_attention = json.load(json_file)
+            return sentence_attention
 
     if file_name is None and sentences is None:
         print('Either a file name or a list of sentences must be provided')
@@ -282,14 +322,16 @@ def get_embeddings(model_name=None, file_name=None, sentences=None, saved_embedd
     pd_objectives = pd.DataFrame()
     # Read file if file path is provided, read the data from there and preprocess it using the pre-defined utility function
     if file_name is not None:
-        _, sentences, _ = preprocess_documents(file=file_name, verbose=False)
+        _, sentences, _ = preprocess_documents(file=file_name, verbose=False,subset=20)
 
     pd_objectives['objectives'] = sentences
 
     # generate embeddings
 
-    sentence_transformers_model = ['bert', 'roberta', 'roberta-base', 'distilbert']
-    hugging_face_models = ['xlnet', 'electra', 'xlm', 'albert']
+    sentence_transformers_model = [ 'bert-sent','roberta', 'roberta-base', 'distilbert']
+    hugging_face_models = ['xlnet', 'electra', 'xlm', 'bert','albert']
+    attention = None # used for hugging face models only
+    embedding_tokens = [] # used for hugging face models only
 
     if model_name in sentence_transformers_model:  # use sentence transformer library for it
         if batch_size == None:
@@ -301,7 +343,8 @@ def get_embeddings(model_name=None, file_name=None, sentences=None, saved_embedd
         pd_objectives['objectives'] = preprocess(pd_objectives['objectives'], model_name)
         if batch_size == None:
             batch_size = 100
-        sentence_embedding = generate_embedding(pd_objectives['objectives'], model_name, batch_size)
+        sentence_embedding, attention = generate_embedding(pd_objectives['objectives'], model_name, batch_size)
+        embedding_tokens = convert_id_to_token(pd_objectives['objectives'], model_name)
 
     # save embeddings
 
@@ -310,12 +353,21 @@ def get_embeddings(model_name=None, file_name=None, sentences=None, saved_embedd
             datetime.now().strftime("%Y_%m_%d_%H_%M_%S")) + '_' + model_name + '/'
     else:
         output_folder = dr
-    file_name = output_folder + model_name + '_embeddings.json'
+
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
+
+    # save the embedding
+    file_name = output_folder + model_name + '_embeddings.json'
     with open(file_name, 'w') as fp:
         json.dump(sentence_embedding, fp)
 
-    return sentence_embedding
+    # save the attention, if it is there
+    if attention is not None:
+        file_name = output_folder + model_name + '_attention.json'
+        with open(file_name, 'w') as fp:
+            json.dump(sentence_embedding, fp)
 
-#get_embeddings(model_name="bert", file_name="../data/PMP_Skills_Matching_Pilot_2018_2019_small.xlsx", batch_size = 100)
+    return sentence_embedding, attention, embedding_tokens
+
+#get_embeddings(model_name="electra", file_name="../data/job_small.xlsx", batch_size = 10)

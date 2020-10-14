@@ -17,14 +17,19 @@ from pyLDAvis import gensim as gs
 import os
 from sklearn.metrics import silhouette_score
 from gensim.models.coherencemodel import CoherenceModel
-
+from sklearn.feature_extraction.text import TfidfVectorizer
 import nltk
-nltk.download('wordnet')
+from nltk.corpus import stopwords
+
+from nltk.tokenize import word_tokenize
+#nltk.download('wordnet')
 
 
 from utilities.document_preprocessing import preprocess_documents
 class Topic_Model:
-    def __init__(self, base = 'LDA', k=3, use_AE = True, gamma = 1, embedding = None, saved_embedding_dir = None, verbose= False, embedding_batch_size=None):
+    def __init__(self, base = 'LDA', k=3, use_AE = True, gamma = 1, embedding = None,
+                 saved_embedding_dir = None, verbose= False, embedding_batch_size=None,
+                 saved_attention_dir = None):
         '''
 
         :param base (str): Probabilistic algorithm to be used. possible values: 'LDA'
@@ -34,6 +39,7 @@ class Topic_Model:
         :param saved_embedding_dir(str): path to the precomputed directory
         :param verbose (bool):
         :param embedding_batch_size (str): batch size to use when computed embeddings for a large data
+        :param attention (bool): if True, the attention scores would be find the top topics/words within the cluster
         '''
         self.verbose = verbose
         self.k = k
@@ -42,7 +48,7 @@ class Topic_Model:
         self.cluster_model = None
         self.basemodel = None
         self.vec = {}
-        self.gamma = gamma # parameter for reletive importance of lda
+        self.gamma = gamma # parameter for relative importance of lda
         self.embedding = None
         self.base = base
 
@@ -70,6 +76,7 @@ class Topic_Model:
         
         self.top_topics = None
         self.saved_embedding_dir = saved_embedding_dir
+        self.saved_attention_dir = saved_attention_dir
         self.embedding_batch_size = embedding_batch_size
         self.use_AE = use_AE
 
@@ -140,13 +147,25 @@ class Topic_Model:
             print('\n Getting vector representations for {} '.format(self.embedding))
 
             if self.saved_embedding_dir is None:
-                sentence_embedding = get_embeddings(self.embedding, sentences=sentences, batch_size = self.embedding_batch_size)
+                sentence_embedding, attention , embedding_tokens = get_embeddings(self.embedding,
+                                                    sentences=sentences, batch_size = self.embedding_batch_size)
             else:
                 # use previously generated embedding
-                sentence_embedding = get_embeddings(saved_embedding_dir=self.saved_embedding_dir)
+                if self.saved_embedding_dir is not None:
+                    sentence_embedding = get_embeddings(saved_embedding_dir=self.saved_embedding_dir)
+                #use previously generated attention vector
+                if self.saved_attention_dir is not None:
+                    attention = get_embeddings(saved_attention_dir=self.saved_attention_dir)
+                else:
+                    # or generate a warning message
+                    print("Attention Vector missing!")
+
+
             vec = np.array(sentence_embedding)
 
             self.vec['EMBEDDING'] = vec
+            self.vec['attention'] = attention
+            self.vec['embedding_tokens'] = embedding_tokens
             return vec
 
         elif '_EMBEDDING' in method:
@@ -238,6 +257,122 @@ class Topic_Model:
                 self.top_topics[k] = topics
 
         return self.top_topics
+
+
+    def get_top_words_tfidf(self, sentence_label_dict, sentences = None, sentence_token = None,  top = 200):
+        '''
+        use tf-idf to find main topic words from clusters
+        :param sentence_label_dict: (dict) containing the indices of the sentences belonging to each cluster
+        :param sentences: list containing all sentences
+        :param sentence_token: list of list containing all tokens
+        :param top: int, top words to pick using tdidf score
+        :return:
+        '''
+
+        tfidf_sentences = []
+        if sentence_token is not None:
+            for i in range(self.k):
+                # concatenate all tokens belong to cluster i into one string
+                k_sentence = ' '.join(' '.join(word for word in sent) for sent in np.array(sentence_token)[sentence_label_dict[i]])
+                #append to the list
+                tfidf_sentences.append(k_sentence)
+        elif sentences is not None:
+            for i in range(self.k):
+                # concatenate all sentences belong to cluster i into one string
+                k_sentence = ' '.join(sent for sent in np.array(sentences)[sentence_label_dict[i]])
+                #remove the stop words
+                #tokenize
+                k_sentence = word_tokenize(k_sentence)
+                # remove stopwords
+                k_sentence = [word for word in k_sentence if not word in stopwords.words()]
+                # convert back to string
+                k_sentence= (" ").join(k_sentence)
+                #append to the list
+                tfidf_sentences.append(k_sentence)
+        else:
+            print ("Either sentences or the token list must be provided")
+            return
+        tfidf = TfidfVectorizer()
+        tfidf_vec = tfidf.fit_transform(tfidf_sentences)
+        tfidf_features = tfidf.get_feature_names()
+
+        pd_tfidf_vec = pd.DataFrame.sparse.from_spmatrix(tfidf_vec)
+        tfidf_topics = []
+        for k in range(self.k):
+            k_topics = np.array(pd_tfidf_vec.iloc[[k]])
+            # get the indices of the top k features, -ve sign return it in the descending order
+            top_k_topic_ind = (-k_topics).argsort()[:,:top]
+
+            #using the ids above, get feature names and add it to the list along with the score
+            topic_k = dict()
+            for i in top_k_topic_ind[0]:
+                topic_k[tfidf_features[i]] = k_topics[0][i]
+            tfidf_topics.append(topic_k)
+
+
+        return tfidf_topics
+
+    def get_top_words_using_attention (self, layer = 0, head = None, top=None):
+
+        if self.embedding not in ['xlnet', 'bert', 'xlm', 'electra', 'albert']:
+            print (" Attention vector is not available for the selected embedding model.")
+            return
+        attention_tokens = dict()
+        token_list = []
+        keys_to_remove = ['[CLS]', '[PAD]', '[SEP]']
+
+        attention_layer = self.vec['attention'][layer]
+        indexed_tokens = self.vec['embedding_tokens']
+
+        for text_id, text in enumerate(attention_layer):
+            tokens = indexed_tokens[text_id]
+            tokens_NN = []
+            if head is None:
+                # iterate over all attention heads of the specified layer if head is not define
+                for attention_head in text:
+
+                    # attention_per_sentence.columns = tokens
+                    # attention_per_sentence.index = tokens
+                    # iterate over all tokens and look for nouns
+                    for token_id, token in enumerate(tokens):
+                         # if the token is noun then sum over all the values in it's attention column, depicting all the attention paid
+                        # to this token by all other tokens in the sentence
+                        tag = nltk.pos_tag([token])
+                        if tag[0][1] == 'NN' and token not in keys_to_remove and ('#' not in token):
+                            tokens_NN.append(token)
+                            attention_sum = np.sum(attention_head[:, token_id], axis=0)
+                            if token in attention_tokens.keys():  # if token already exists
+                                attention_tokens[token] += attention_sum  # increment the value
+                            else:
+                                attention_tokens[token] = attention_sum
+            else: #if attention head is defined
+                attention_head = text[head]
+                attention_head = attention_head.numpy()
+                # attention_per_sentence.columns = tokens
+                # attention_per_sentence.index = tokens
+                # iterate over all tokens and look for nouns
+                for token_id, token in enumerate(tokens):
+                    # if the token is noun then sum over all the values in it's attention column, depicting all the attention paid
+                    # to this token by all other tokens in the sentence
+                    tag = nltk.pos_tag([token])
+                    if tag[0][1] == 'NN' and token not in keys_to_remove and ('#' not in token):
+                        tokens_NN.append(token)
+                        attention_sum = np.sum(attention_head[:, token_id], axis=0)
+                        if token in attention_tokens.keys():  # if token already exists
+                            attention_tokens[token] += attention_sum  # increment the value
+                        else:
+                            attention_tokens[token] = attention_sum
+            token_list.append(tokens_NN)
+
+        #sort in descending order
+        attention_tokens = {k: v for k, v in sorted(attention_tokens.items(), key=lambda item: item[1], reverse=True)}
+        #type cast attention scores to int
+        attention_tokens = dict([a, int(x)] for a, x in attention_tokens.items())
+
+        if top is not None:
+            attention_tokens = Counter(attention_tokens).most_common(top)
+            attention_tokens = dict(attention_tokens)
+        return attention_tokens, token_list
 
     def compress_features(self, ids):
         '''
@@ -455,7 +590,8 @@ class Topic_Model:
 
     def get_coherence(self,topics = None,  token_lists = None , measure='c_v'):
         """
-        Get model coherence from gensim.models.coherencemodel
+        Score used for Topic Modeling
+        Get model coherence from gensim.models.coherencemodel is a measure within-topic top word similiarity
         :param model: Topic_Model object
         :param token_lists: token lists of docs
         :param topics: topics as top words
@@ -483,6 +619,7 @@ class Topic_Model:
 
     def get_silhouette(self):
         """
+        Score used for clustering
         Get silhouette score from model. Not applicable for LDA
 
         Silhouette refers to a method of interpretation and validation of consistency within clusters of data.
@@ -504,3 +641,28 @@ class Topic_Model:
             vec = self.vec[self.method]
 
         return silhouette_score(vec, lbs)
+'''
+file = "../data/job_small.xlsx"
+
+
+ids, sentences, token_lists = preprocess_documents(file, verbose = False,
+                                                   dr = "output/preprocessed_data/minijob/",
+                                                   subset = 10)
+
+# define the numbe of clusters
+k = 3
+
+# Define the topic model object
+TopicModelObject = Topic_Model(base = None, k = k, verbose = False, embedding = 'bert',
+                               saved_embedding_dir = None,
+                               embedding_batch_size = 500, use_AE= False)
+
+TopicModelObject.fit(sentences, token_lists, epoch=5)
+
+labels = TopicModelObject.cluster_model.labels_
+sentence_label_dict = dict()
+for label in set(labels):
+    sentence_label_dict[label] = [idx for idx, l in enumerate(labels) if l == label]
+print(TopicModelObject.get_top_words_tfidf(sentence_token=token_lists, sentences=sentences,
+                                           sentence_label_dict=sentence_label_dict, top=50))
+'''

@@ -162,9 +162,9 @@ def preprocess_documents(file=None,
     # get a quick analysis on the number of words in each objective
     allowed_length = length_analysis(docs) # max num of words used from each objective
 
-    if allowed_length > 500: # because a lot of embeddings don't allow to get an embedding for text with more than 500 words
+    if allowed_length > 400: # because a lot of embeddings don't allow to get an embedding for text with more than 500 words
         print("Allowed length according to data is {} but since it is greater than 500, reducing it to 500".format(allowed_length))
-        allowed_length = 500
+        allowed_length = 400
 
     n_docs = len(docs)
 
