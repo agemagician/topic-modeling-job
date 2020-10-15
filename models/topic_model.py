@@ -2,7 +2,7 @@
 from models.embeddings_model import get_embeddings
 from models.autoencoder_model import Autoencoder
 from utilities.utils import generate_n_gram
-from utilities.visualizations import get_employee_clusters, get_wordcloud,  create_hist
+from utilities.visualizations import get_employee_clusters, get_wordcloud,  create_hist, vis_3d, vis_2d
 from datetime import datetime
 import gensim
 from gensim import corpora, models
@@ -10,7 +10,6 @@ from sklearn.cluster import KMeans
 import numpy as np
 import pandas as pd
 from collections import Counter
-from sklearn.manifold import TSNE
 import torch
 import pyLDAvis
 from pyLDAvis import gensim as gs
@@ -20,7 +19,7 @@ from gensim.models.coherencemodel import CoherenceModel
 from sklearn.feature_extraction.text import TfidfVectorizer
 import nltk
 from nltk.corpus import stopwords
-
+from sklearn.manifold import TSNE
 from nltk.tokenize import word_tokenize
 nltk.download('wordnet')
 
@@ -211,7 +210,7 @@ class Topic_Model:
         else:
             return vec.numpy()
 
-    def fit(self, sentences, token_lists, epoch = 5):
+    def fit(self, sentences, token_lists, epoch = 5, vis_clusters = False):
         """
         Fit the topic model for selected method given the preprocessed data
 
@@ -236,8 +235,7 @@ class Topic_Model:
             self.cluster_model.fit(self.vec['EMBEDDING'])
 
         print('Clustering. Done!')
-        print ("Silhouette Score for the clusters is")
-        print(self.get_silhouette())
+        print ("Silhouette Score for the clusters is", self.get_silhouette(plot=vis_clusters))
 
     def get_top_words_base(self, top=5):
 
@@ -312,7 +310,8 @@ class Topic_Model:
 
         return tfidf_topics
 
-    def get_top_words_using_attention (self, layer = 0, head = None, top=None):
+    def get_top_words_using_attention (self, sentence_label_dict,
+                                       cluster_id, layer = 0, head = None, top=None):
 
         if self.embedding not in ['xlnet', 'bert', 'xlm', 'electra', 'albert']:
             print (" Attention vector is not available for the selected embedding model.")
@@ -321,8 +320,14 @@ class Topic_Model:
         token_list = []
         keys_to_remove = ['[CLS]', '[PAD]', '[SEP]']
 
-        attention_layer = self.vec['attention'][layer]
-        indexed_tokens = self.vec['embedding_tokens']
+        attention_layers = self.vec['attention']
+        # attention vector for the samples belonging to this cluster
+        cluster_attention = np.squeeze(attention_layers[:, [sentence_label_dict[cluster_id]], :, :, :])
+        # get the specified attention layer
+        attention_layer = cluster_attention[layer]
+
+        #get the tokens for all sentences belonging to this cluster
+        indexed_tokens = np.array(self.vec['embedding_tokens'])[sentence_label_dict[cluster_id]]
 
         for text_id, text in enumerate(attention_layer):
             tokens = indexed_tokens[text_id]
@@ -617,7 +622,7 @@ class Topic_Model:
 
         return cm.get_coherence()
 
-    def get_silhouette(self):
+    def get_silhouette(self, plot = False):
         """
         Score used for clustering
         Get silhouette score from model. Not applicable for LDA
@@ -640,17 +645,38 @@ class Topic_Model:
         else:
             vec = self.vec[self.method]
 
-        return silhouette_score(vec, lbs)
-'''
+        score = silhouette_score(vec, lbs)
+        if plot is False:
+            return score
+
+        print ("Silhouette Score before dimensionality reduction is ", score)
+
+        #performing dimensionality reduction to visualize the clusterings
+        vec_3d = TSNE(n_components=3).fit_transform(vec)
+        score = silhouette_score(vec_3d, lbs)
+        print("Silhouette Score after dimensionality reduction to a 3d space is ", score)
+
+        #visualizing the clusters
+        vis_3d(vec_3d,lbs)
+
+        vec_2d = TSNE(n_components=2).fit_transform(vec)
+        score = silhouette_score(vec_3d, lbs)
+        print("Silhouette Score after dimensionality reduction to a 2d space is ", score)
+
+        # visualizing the clusters
+        vis_2d(vec_2d, lbs)
+
+        return score
+
 file = "../data/job_small.xlsx"
 
 
 ids, sentences, token_lists = preprocess_documents(file, verbose = False,
                                                    dr = "output/preprocessed_data/minijob/",
-                                                   subset = 10)
+                                                   subset = 14)
 
 # define the numbe of clusters
-k = 3
+k = 2
 
 # Define the topic model object
 TopicModelObject = Topic_Model(base = None, k = k, verbose = False, embedding = 'bert',
@@ -661,8 +687,9 @@ TopicModelObject.fit(sentences, token_lists, epoch=5)
 
 labels = TopicModelObject.cluster_model.labels_
 sentence_label_dict = dict()
+
 for label in set(labels):
     sentence_label_dict[label] = [idx for idx, l in enumerate(labels) if l == label]
-print(TopicModelObject.get_top_words_tfidf(sentence_token=token_lists, sentences=sentences,
-                                           sentence_label_dict=sentence_label_dict, top=50))
-'''
+
+for i in range(TopicModelObject.k):
+    print(TopicModelObject.get_top_words_using_attention(sentence_label_dict=sentence_label_dict,cluster_id=i, layer=0))

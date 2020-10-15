@@ -110,7 +110,7 @@ def preprocess_word(s):
 
 # wrapper function to preprocess all the sentences in a document
 def preprocess_documents(file=None,
-                         verbose = False, dr = 'output/preprocessed_data/', subset=None):
+                         verbose = False, dr = 'output/preprocessed_data/', subset=None, max_sent_length= None):
     '''
         Read the file and preprocess the data
 
@@ -162,9 +162,11 @@ def preprocess_documents(file=None,
     # get a quick analysis on the number of words in each objective
     allowed_length = length_analysis(docs) # max num of words used from each objective
 
-    if allowed_length > 400: # because a lot of embeddings don't allow to get an embedding for text with more than 500 words
+    if max_sent_length is None:
+        max_sent_length = 400
+    if allowed_length > max_sent_length: # because a lot of embeddings don't allow to get an embedding for text with more than 500 words
         print("Allowed length according to data is {} but since it is greater than 500, reducing it to 500".format(allowed_length))
-        allowed_length = 400
+        allowed_length = max_sent_length
 
     n_docs = len(docs)
 

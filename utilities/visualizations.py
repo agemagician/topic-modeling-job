@@ -148,7 +148,70 @@ def create_hist(x, title=None, x_title = None, y_title = None, save= False, dir 
         fig.write_image(hist_path)
 
 
+def vis_3d(vec_3d,lbs):
+    fig = go.Figure()
 
+    for i, cl in enumerate(set(lbs)):
+        cluster_samples = np.argwhere(lbs==cl)
+        features = vec_3d[cluster_samples]
+        features = features.squeeze()
+
+        # normalize the features between 0 and 1
+
+        min_ = features.min(axis=0)
+        max_ = features.max(axis=0)
+
+        features = (features - min_) / (max_ - min_)
+
+        fig.add_trace(go.Scatter3d(
+            x=features[:, 0],
+            y=features[:, 1],
+            z=features[:, 2],
+            mode='markers',
+            showlegend=True,
+            marker=dict(size=3, color=i),
+            name="cluster_" + str(cl + 1)
+        ))
+
+    fig.update_layout(title='Distribution of jobs over clusters in 3d Space', legend=dict(
+            x=0.6,
+            y=1.4,
+            traceorder='normal',
+            font=dict(
+                size=10)))
+    fig.show()
+
+def vis_2d(vec_2d,lbs):
+    fig = go.Figure()
+
+    for i, cl in enumerate(set(lbs)):
+        cluster_samples = np.argwhere(lbs==cl)
+        features = vec_2d[cluster_samples]
+        features = features.squeeze()
+
+        # normalize the features between 0 and 1
+
+        min_ = features.min(axis=0)
+        max_ = features.max(axis=0)
+
+        features = (features - min_) / (max_ - min_)
+
+        fig.add_trace(go.Scattergl(
+            x=features[:, 0],
+            y=features[:, 1],
+            mode='markers',
+            showlegend=True,
+            marker=dict(size=3, color=i),
+            name="cluster_" + str(cl + 1)
+        ))
+
+    fig.update_layout(title='Distribution of jobs over clusters in 2d Space', legend=dict(
+            x=0.6,
+            y=1.4,
+            traceorder='normal',
+            font=dict(
+                size=10)))
+    fig.show()
 
 
 
