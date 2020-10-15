@@ -239,10 +239,10 @@ def generate_sentence_embeddings(objectives, model_name, batch_size=100):
 
     '''
 
-    model2transformer = {'bert': 'bert-base-nli-mean-tokens',
-                         'roberta': 'roberta-large-nli-stsb-mean-tokens',
+    model2transformer = {'bert-sent': 'bert-base-nli-mean-tokens',
+                         'roberta-sent': 'roberta-large-nli-stsb-mean-tokens',
                          # 'roberta-base':'roberta-base-nli-stsb-mean-tokens',
-                         'distilbert': 'distilbert-base-nli-stsb-mean-tokens'}
+                         'distilbert-sent': 'distilbert-base-nli-stsb-mean-tokens'}
 
     # get the specfic model name for sentence transformer
     model_name = model2transformer[model_name]
@@ -328,7 +328,7 @@ def get_embeddings(model_name=None, file_name=None, sentences=None, saved_embedd
 
     # generate embeddings
 
-    sentence_transformers_model = [ 'bert-sent','roberta', 'roberta-base', 'distilbert']
+    sentence_transformers_model = [ 'bert-sent','roberta-sent', 'roberta-base-sent', 'distilbert-sent']
     hugging_face_models = ['xlnet', 'electra', 'xlm', 'bert','albert']
     attention = None # used for hugging face models only
     embedding_tokens = [] # used for hugging face models only

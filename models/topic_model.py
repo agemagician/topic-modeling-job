@@ -22,7 +22,7 @@ import nltk
 from nltk.corpus import stopwords
 
 from nltk.tokenize import word_tokenize
-#nltk.download('wordnet')
+nltk.download('wordnet')
 
 
 from utilities.document_preprocessing import preprocess_documents

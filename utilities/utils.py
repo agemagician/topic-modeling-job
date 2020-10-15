@@ -25,7 +25,13 @@ def dict_count_to_lol(topics):
     return lol_topics
 
 
-def clean_topics_from_clusters(topics):
+def clean_topics_from_clusters(topics, delete = False):
+    '''
+    clean the topic words in each cluster by eliminating the common words
+    :param topics: list of dictionary. Each dictionary contains the words as keys and their frequency (score) as values
+    :param delete: if True, delete the common words from all clusters
+    :return: list of dictionary with cleaned topic words for each cluster
+    '''
     K = len(topics)
 
     # place holder for saving the words to be deleted from each cluster
@@ -40,10 +46,16 @@ def clean_topics_from_clusters(topics):
             for ind_j, topic_j in enumerate(topics[k+1:K]):
                 if word_k in topic_j.keys(): # if the word exists in other clusters too
 
-                    if topic_k[word_k] >= topic_j[word_k]: #the word has more frequency in initial cluster
-                        topics_to_delete[ind_j+k+1].append(word_k)
-                    elif topic_k[word_k] < topic_j[word_k]: # topic has less frequency in initial cluster
-                        topics_to_delete[k].append(word_k) # so we delete it from initial cluster
+                    # if the policy is to delete common words from all clusters
+                    if delete:
+                        topics_to_delete[ind_j + k + 1].append(word_k)
+                        topics_to_delete[k].append(word_k)
+                    # otherwise keep common words in the cluster with maximum frequency
+                    else:
+                        if topic_k[word_k] >= topic_j[word_k]: #the word has more frequency in initial cluster
+                            topics_to_delete[ind_j+k+1].append(word_k)
+                        elif topic_k[word_k] < topic_j[word_k]: # topic has less frequency in initial cluster
+                            topics_to_delete[k].append(word_k) # so we delete it from initial cluster
 
 
     topics_clean = []
@@ -52,8 +64,6 @@ def clean_topics_from_clusters(topics):
             if word in topic.keys():
                 del topic[word]
         topics_clean.append(topic)
-
-
 
     return topics_clean
 
