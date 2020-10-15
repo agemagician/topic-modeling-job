@@ -121,7 +121,7 @@ def pad_sequences(data, max_length, pad_id):
     return data_paded
 
 
-def generate_embedding(objectives, model_name, batch_size=100):
+def generate_embedding(objectives, model_name, batch_size=100,output_attention=False):
     '''
     Takes in a pandas dataframe and generates embeddings for the text column using the hugging face implemented models
     - Inputs:
@@ -136,19 +136,19 @@ def generate_embedding(objectives, model_name, batch_size=100):
 
     if model_name == 'bert':
         # Load pre-trained bert model (weights)
-        model = BertModel.from_pretrained('bert-base-uncased', output_attentions=True)
+        model = BertModel.from_pretrained('bert-base-uncased', output_attentions=output_attention)
     elif model_name == 'xlnet':
         # Load pre-trained xlnet model (weights)
-        model = XLNetModel.from_pretrained('xlnet-base-cased', output_attentions=True)
+        model = XLNetModel.from_pretrained('xlnet-base-cased', output_attentions=output_attention)
     elif model_name == 'xlm':
         # Load pre-trained xlm model (weights)
-        model = XLMModel.from_pretrained('xlm-mlm-en-2048', output_attentions=True)
+        model = XLMModel.from_pretrained('xlm-mlm-en-2048', output_attentions=output_attention)
     elif model_name == 'electra':
         # Load pre-trained electra model (weights)
-        model = ElectraModel.from_pretrained('google/electra-small-discriminator', output_attentions=True)
+        model = ElectraModel.from_pretrained('google/electra-small-discriminator', output_attentions=output_attention)
     elif model_name == 'albert':
         # Load pre-trained albert model (weights)
-        model = AlbertForMaskedLM.from_pretrained('albert-base-v2', output_attentions=True)
+        model = AlbertForMaskedLM.from_pretrained('albert-base-v2', output_attentions=output_attention)
     else:
         print("Please select an implemented model name. {} doesn't exist".format(model_name))
         return
@@ -168,7 +168,7 @@ def generate_embedding(objectives, model_name, batch_size=100):
     model.to(device)
     num_sentences = len(objectives)
     sentence_embedding = []
-    attention_layers = []
+    attention_layers = None
 
     if num_sentences > sentences_per_batch:
         num_batches = num_sentences // sentences_per_batch
@@ -194,13 +194,13 @@ def generate_embedding(objectives, model_name, batch_size=100):
 
             # Calculate the average of all k  token vectors and adding to the main list
             sentence_embedding += torch.mean(token_vecs, dim=1).tolist()
-
-            attention_layer = [al.tolist() for al in encoded_layers[-1]]
-            attention_layer = np.array(attention_layer)
-            if len(attention_layers) == 0:
-                attention_layers = attention_layer
-            else:
-                attention_layers = np.concatenate((attention_layers, attention_layer), axis = 1)
+            if output_attention is True:
+                attention_layer = [al.tolist() for al in encoded_layers[-1]]
+                attention_layer = np.array(attention_layer)
+                if len(attention_layers) == 0:
+                    attention_layers = attention_layer
+                else:
+                    attention_layers = np.concatenate((attention_layers, attention_layer), axis = 1)
 
             print("Embedding for batch {} out of {} batches Completed.".format(i, num_batches))
     else:
@@ -218,11 +218,13 @@ def generate_embedding(objectives, model_name, batch_size=100):
         token_vecs = encoded_layers[0]
         sentence_embedding = torch.mean(token_vecs, dim=1).tolist()
 
-        attention_layers = [al.tolist() for al in encoded_layers[-1]]
-        attention_layers = np.array(attention_layers)
+        if output_attention is True:
+            attention_layers = [al.tolist() for al in encoded_layers[-1]]
+            attention_layers = np.array(attention_layers)
 
     print("Our final sentence embedding vector of shape:", len(sentence_embedding), len(sentence_embedding[0]))
-    print("And the corresponding attention vector of shape:", attention_layers.shape)
+    if output_attention:
+        print("And the corresponding attention vector of shape:", attention_layers.shape)
     return sentence_embedding, attention_layers
 
 
@@ -286,7 +288,7 @@ def generate_sentence_embeddings(objectives, model_name, batch_size=100):
 
 
 def get_embeddings(model_name=None, file_name=None, sentences=None, saved_embedding_dir=None, batch_size=None, dr=None,
-                   saved_attention_dir = None):
+                   saved_attention_dir = None, output_attention = False):
     '''
     wrapper functions which generates the the embeddings for the text in input file and saves in a json file
     - Inputs:
@@ -343,7 +345,8 @@ def get_embeddings(model_name=None, file_name=None, sentences=None, saved_embedd
         pd_objectives['objectives'] = preprocess(pd_objectives['objectives'], model_name)
         if batch_size == None:
             batch_size = 100
-        sentence_embedding, attention = generate_embedding(pd_objectives['objectives'], model_name, batch_size)
+        sentence_embedding, attention = generate_embedding(pd_objectives['objectives'], model_name, batch_size,
+                                                           output_attention=output_attention)
         embedding_tokens = convert_id_to_token(pd_objectives['objectives'], model_name)
 
     # save embeddings

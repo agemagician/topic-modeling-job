@@ -6,23 +6,31 @@ from collections import Counter
 import numpy as np
 
 
-def dict_count_to_lol(topics):
+def get_main_topics(topics, top = 50):
     '''
     Given a list of dictionaries where each dictionary has contains the topic in the cluster as key and count of the cluster as value
-    this function unrolls it into a list of list where each list has a unrolled topics of each cluster.
-    if key word1 has value 5, then it would append the word word1 5 times to the list
+    this function picks the top words for each cluster and returns it
     :param topics: list of dictionaries
 
 
     :return: list of list
     '''
-    lol_topics = []
+    main_topics = []
     for cluster in topics:
-        temp_cluster = []
+        cluster_topics = []
+
+        # sort a dictionary in descending order
+        cluster = {k: v for k, v in sorted(cluster.items(), key=lambda item: item[1])}
+        # to keep track of
+        counter = 0
         for key, value in cluster.items():
-            temp_cluster += [key for i in range(value)]
-        lol_topics.append(temp_cluster)
-    return lol_topics
+            if counter < top:
+                cluster_topics.append(key)
+                counter += 1
+            else:
+                break
+        main_topics.append(cluster_topics)
+    return main_topics
 
 
 def clean_topics_from_clusters(topics, delete = False):

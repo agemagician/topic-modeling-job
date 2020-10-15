@@ -28,7 +28,7 @@ from utilities.document_preprocessing import preprocess_documents
 class Topic_Model:
     def __init__(self, base = 'LDA', k=3, use_AE = True, gamma = 1, embedding = None,
                  saved_embedding_dir = None, verbose= False, embedding_batch_size=None,
-                 saved_attention_dir = None):
+                 saved_attention_dir = None, output_attention = False):
         '''
 
         :param base (str): Probabilistic algorithm to be used. possible values: 'LDA'
@@ -78,6 +78,7 @@ class Topic_Model:
         self.saved_attention_dir = saved_attention_dir
         self.embedding_batch_size = embedding_batch_size
         self.use_AE = use_AE
+        self.output_attention = output_attention
 
     def vectorize(self, sentences, token_lists, method=None):
         """
@@ -147,7 +148,8 @@ class Topic_Model:
 
             if self.saved_embedding_dir is None:
                 sentence_embedding, attention , embedding_tokens = get_embeddings(self.embedding,
-                                                    sentences=sentences, batch_size = self.embedding_batch_size)
+                                                    sentences=sentences, batch_size = self.embedding_batch_size,
+                                                    output_attention = self.output_attention)
             else:
                 # use previously generated embedding
                 if self.saved_embedding_dir is not None:
@@ -345,6 +347,8 @@ class Topic_Model:
                         tag = nltk.pos_tag([token])
                         if tag[0][1] == 'NN' and token not in keys_to_remove and ('#' not in token):
                             tokens_NN.append(token)
+                            print (token_id)
+                            print (attention_head.shape)
                             attention_sum = np.sum(attention_head[:, token_id], axis=0)
                             if token in attention_tokens.keys():  # if token already exists
                                 attention_tokens[token] += attention_sum  # increment the value
@@ -593,7 +597,7 @@ class Topic_Model:
         print (employee_cluster_frequency)
         create_hist(employee_cluster_frequency)
 
-    def get_coherence(self,topics = None,  token_lists = None , measure='c_v'):
+    def get_coherence(self,topics = None, token_lists = None , measure='c_v', top = 100):
         """
         Score used for Topic Modeling
         Get model coherence from gensim.models.coherencemodel is a measure within-topic top word similiarity
@@ -603,20 +607,40 @@ class Topic_Model:
         :param measure: coherence metrics
         :return: coherence score
         """
+
+        def get_topic_words(token_lists, labels, k=None, top = 100):
+            """
+            get top words within each topic from clustering results
+
+            """
+            if k is None:
+                k = len(np.unique(labels))
+            topics = ['' for _ in range(k)]
+            for i, c in enumerate(token_lists):
+                topics[labels[i]] += (' ' + ' '.join(c))
+            word_counts = list(map(lambda x: Counter(x.split()).items(), topics))
+            # get sorted word counts
+            word_counts = list(map(lambda x: sorted(x, key=lambda x: x[1], reverse=True), word_counts))
+            # get topics
+            topics = list(map(lambda x: list(map(lambda x: x[0], x[:top])), word_counts))
+
+            return topics
+
         if self.method == 'LDA':
             cm = CoherenceModel(model=self.basemodel, texts= self.lda_token_lists, corpus=self.corpus,
                                 dictionary=self.dictionary,
                                 coherence=measure)
         else:
 
-            if topics is None or token_lists is None:
+            if token_lists is None:
                 print ("Parameters missing, cannot compute coherence score for the model")
                 return
             dictionary = corpora.Dictionary(token_lists)
 
             # convert tokenized documents into a document-term matrix
             corpus = [dictionary.doc2bow(text) for text in token_lists]
-
+            if topics is None:
+                topics = get_topic_words(token_lists, self.cluster_model.labels_, top=top)
             cm = CoherenceModel(topics=topics, texts=token_lists, corpus=corpus, dictionary=dictionary,
                                 coherence=measure)
 
@@ -668,20 +692,21 @@ class Topic_Model:
 
         return score
 
+'''
 file = "../data/job_small.xlsx"
 
 
 ids, sentences, token_lists = preprocess_documents(file, verbose = False,
                                                    dr = "output/preprocessed_data/minijob/",
-                                                   subset = 14)
+                                                   subset = 50, max_sent_length=50)
 
 # define the numbe of clusters
-k = 2
+k = 4
 
 # Define the topic model object
 TopicModelObject = Topic_Model(base = None, k = k, verbose = False, embedding = 'bert',
                                saved_embedding_dir = None,
-                               embedding_batch_size = 500, use_AE= False)
+                               embedding_batch_size = 500, use_AE= False, output_attention=True)
 
 TopicModelObject.fit(sentences, token_lists, epoch=5)
 
@@ -690,6 +715,10 @@ sentence_label_dict = dict()
 
 for label in set(labels):
     sentence_label_dict[label] = [idx for idx, l in enumerate(labels) if l == label]
-
 for i in range(TopicModelObject.k):
-    print(TopicModelObject.get_top_words_using_attention(sentence_label_dict=sentence_label_dict,cluster_id=i, layer=0))
+
+    token_with_frequency, token_list = TopicModelObject.get_top_words_using_attention (
+        sentence_label_dict=sentence_label_dict, cluster_id = i, layer = 1, head = None, top = 150)
+
+
+'''
