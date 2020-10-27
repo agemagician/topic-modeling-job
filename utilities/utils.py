@@ -112,13 +112,13 @@ def generate_n_gram(sentences, n=2,separator = '-',  keep_stopwords = True, stem
         return None
 
     n_grams_all_sentences = []
-    token_list = []
+    token_list = [] # keep track all features/tokens belonging to each sentences to keep calculate the coherence model
     insufficient_count_for_feature = n-1
 
     for sent in sentences:
 
         tokenized_sent = tokenize_sentence(sent, keep_stopwords, stem, keep_nouns_only)
-        token_list.append(tokenized_sent)
+        sent_features = []
 
         #only if there are enough tokens in the sentence to create at least one feature
         if len(tokenized_sent) >= n:
@@ -132,7 +132,9 @@ def generate_n_gram(sentences, n=2,separator = '-',  keep_stopwords = True, stem
                         feature += separator
 
                 n_grams_all_sentences.append(feature)
+                sent_features.append(feature)
 
+        token_list.append(sent_features)
     ngram_token_with_frequency = Counter(n_grams_all_sentences).most_common()
     return dict(ngram_token_with_frequency), token_list
 

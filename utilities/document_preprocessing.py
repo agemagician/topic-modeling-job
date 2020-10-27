@@ -1,6 +1,5 @@
 import re
 import nltk
-from nltk.stem.porter import PorterStemmer
 from stop_words import get_stop_words
 from nltk.tokenize import word_tokenize
 import pandas as pd
@@ -142,15 +141,19 @@ def preprocess_documents(file=None,
     documents = documents.replace(np.nan, '', regex=True)
 
     # dropping all duplicates because the data has a lot of redundant rows
-    documents.drop_duplicates(inplace=True)
-    #documents.drop_duplicates(inplace=True, subset=['Objective_Metric'])
+    #documents.drop_duplicates(inplace=True)
+    documents.drop_duplicates(inplace=True, subset=['Objective_Metric', 'Objective_Name'])
 
-    #id = documents['User ID (anonymus)']
-    #docs = documents['Objective_Name'].astype(str) + ' \n ' + documents['Objective_Description'].astype(str) + ' \n ' + \
-    #              documents['Objective_Metric'].astype(str)
+    #merge all records of an employee into one
+    documents = documents.groupby('User ID (anonymus)', as_index=False).agg({'Objective_Metric': ' '.join,
+                                                                             'Objective_Name': ' '.join})
 
-    id = documents['Id']
-    docs = documents['Title'].astype(str) + ' \n ' + documents['FullDescription'].astype(str)
+    id = documents['User ID (anonymus)']
+    docs =  documents['Objective_Metric'].astype(str)
+    docs_titles = documents['Objective_Name'].astype(str)
+
+    #id = documents['Id']
+    #docs = documents['Title'].astype(str) + ' \n ' + documents['FullDescription'].astype(str)
 
 
     #type cast to list for easier processing
@@ -217,6 +220,7 @@ def preprocess_documents(file=None,
 
 
     ids = id.drop([id.index[i] for i in id_drop])
+    docs_titles = docs_titles.drop([docs_titles.index[i] for i in id_drop])
     print("Dropped {} entries with non english text".format(len(id_drop)))
 
     print('\n Preprocessing raw texts. Done!')
@@ -226,13 +230,14 @@ def preprocess_documents(file=None,
     temp_df['id'] = ids
     temp_df['sentences'] = sentences_list
     temp_df['token_list'] = token_lists
+    temp_df['sentences_titles'] = docs_titles
 
 
     if not os.path.exists(dr):
         os.makedirs(dr)
     temp_df.to_pickle(dr + "use_this_data.pkl")
 
-    return id, sentences_list, token_lists
+    return ids, sentences_list, token_lists, docs_titles
 
 #preprocess_documents("/home/anum/Downloads/25828_32915_compressed_Train_rev1.csv/Train_rev1.csv",  dr = "../output/preprocessed_data/job/", subset = 10000 )
 

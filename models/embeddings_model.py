@@ -192,8 +192,12 @@ def generate_embedding(objectives, model_name, batch_size=100,output_attention=F
             # token_vecs` is a tensor with shape [n x k x 1024]
             token_vecs = encoded_layers[0]
 
-            # Calculate the average of all k  token vectors and adding to the main list
-            sentence_embedding += torch.mean(token_vecs, dim=1).tolist()
+            # take the vector corresponing to the [CLS] token if it has a cls token.
+            if model_name in ['bert', 'albert', 'electra']:
+                sentence_embedding += token_vecs[:,0,:].tolist()
+            # for those without a cls token, Calculate the average of all k  token vectors and adding to the main list
+            else:
+                sentence_embedding += torch.mean(token_vecs, dim=1).tolist()
             if output_attention is True:
                 attention_layer = [al.tolist() for al in encoded_layers[-1]]
                 attention_layer = np.array(attention_layer)
@@ -216,7 +220,13 @@ def generate_embedding(objectives, model_name, batch_size=100,output_attention=F
         # taking embeddings of the last layer.
         # token_vecs` is a tensor with shape [n x k x 1024]
         token_vecs = encoded_layers[0]
-        sentence_embedding = torch.mean(token_vecs, dim=1).tolist()
+
+        # take the vector corresponing to the [CLS] token if it has a cls token.
+        if model_name in ['bert', 'albert', 'electra']:
+            sentence_embedding = token_vecs[:, 0, :].tolist()
+        # for those without a cls token, Calculate the average of all k  token vectors and adding to the main list
+        else:
+            sentence_embedding = torch.mean(token_vecs, dim=1).tolist()
 
         if output_attention is True:
             attention_layers = [al.tolist() for al in encoded_layers[-1]]
@@ -373,4 +383,4 @@ def get_embeddings(model_name=None, file_name=None, sentences=None, saved_embedd
 
     return sentence_embedding, attention, embedding_tokens
 
-#get_embeddings(model_name="electra", file_name="../data/job_small.xlsx", batch_size = 10)
+#get_embeddings(model_name="xlnet", file_name="../data/job_small.xlsx", batch_size = 10,output_attention=False)

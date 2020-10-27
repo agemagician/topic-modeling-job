@@ -1,7 +1,7 @@
 # Importing the required python modules
 from models.embeddings_model import get_embeddings
 from models.autoencoder_model import Autoencoder
-from utilities.utils import generate_n_gram
+from utilities.utils import generate_n_gram, clean_topics_from_clusters, get_main_topics
 from utilities.visualizations import get_employee_clusters, get_wordcloud,  create_hist, vis_3d, vis_2d
 from datetime import datetime
 import gensim
@@ -160,6 +160,8 @@ class Topic_Model:
                 else:
                     # or generate a warning message
                     print("Attention Vector missing!")
+                    attention = None
+                    embedding_tokens = None
 
 
             vec = np.array(sentence_embedding)
@@ -338,8 +340,6 @@ class Topic_Model:
                 # iterate over all attention heads of the specified layer if head is not define
                 for attention_head in text:
 
-                    # attention_per_sentence.columns = tokens
-                    # attention_per_sentence.index = tokens
                     # iterate over all tokens and look for nouns
                     for token_id, token in enumerate(tokens):
                          # if the token is noun then sum over all the values in it's attention column, depicting all the attention paid
@@ -357,8 +357,6 @@ class Topic_Model:
             else: #if attention head is defined
                 attention_head = text[head]
                 attention_head = attention_head.numpy()
-                # attention_per_sentence.columns = tokens
-                # attention_per_sentence.index = tokens
                 # iterate over all tokens and look for nouns
                 for token_id, token in enumerate(tokens):
                     # if the token is noun then sum over all the values in it's attention column, depicting all the attention paid
@@ -389,61 +387,53 @@ class Topic_Model:
 
             Perform Dimensionality reduction on the learned features using the following steps:
 
-            1) Merge all the vectors of each employee into one by taking average
-
-            2) Assign the class label to each employee based on argmax on label counts.
-
-            3) Further compress the average feature vector into 2d/3d space for visualization.
-
         :return: pandas dataframe with features vectors(averaged over all objectives for each employee),
         compress features vectors 2d. compressed feature vector 3d,
         assigned cluster label
         '''
 
         # Getting feature vectors and cluster labels assigned by the model
-        if self.method == 'LDA':
-            feature_vector = self.vec['LDA']
+        # Getting feature vectors and cluster labels assigned by the model
+        if self.method == 'LDA' or self.method == 'LSI':
+            feature_vector = self.vec[self.method]
             # for each sentence, find out the cluster it belongs to
             cluster_label_per_document = np.argmax(np.array(feature_vector), axis=1)
         else:
             cluster_label_per_document = np.array(self.cluster_model.labels_)
-            feature_vector = self.vec['ENCODER']
+            feature_vector = self.vec[self.method]
             if torch.cuda.is_available():
-                feature_vector = feature_vector.cpu().numpy()
+                feature_vector = feature_vector.cpu()
             else:
-                feature_vector = feature_vector.numpy()
+                feature_vector = feature_vector
 
-        unique_ids = list(set(ids))
-        num_employee = len(unique_ids)
+        num_employee = len(ids)
 
         # Create place holder for the analysis
-        averaged_employee_features = pd.DataFrame(None, index=pd.Index(unique_ids, name='Employee id'),
+        averaged_employee_features = pd.DataFrame(None, index=pd.Index(ids, name='Employee id'),
                                               columns=pd.Index(
                                                   ['feature_vector', 'cluster', 'feature_vector_2d',
                                                    'feature_vector_3d'],
                                                   name='Compressed_features'))
         # get the indices of all objectives/documents/sentence for each employee (for later use)
         employee_objective_indices = dict()
-        for employee in unique_ids:
+        ids = np.array(ids)
+        for employee in ids:
             employee_indices = [i for i, e in enumerate(ids) if (ids[i] == employee)]
-            employee_objective_indices[employee] = employee_indices
+            employee_objective_indices[employee] = employee_indices[0]
 
-        # 1 & 2 take average of all feature vectors belonging to an employee and assigning cluster label by taking the mode
+        #  putting values in the place holder
 
-        for employee in unique_ids:
-            # get all feature vectors belonging to an employee
-            feature_vector_per_employee = feature_vector[employee_objective_indices[employee]]
-            # get label for all feature vectors belonging to that employee
-            clusters_per_employee = cluster_label_per_document[employee_objective_indices[employee]]
+        for employee in ids:
+            # get the feature vectors belonging to an employee
+            averaged_employee_features['feature_vector'][employee] = feature_vector[
+                employee_objective_indices[employee]]
 
-            # take mean of all feature vectors
-            averaged_employee_features['feature_vector'][employee] = np.mean(feature_vector_per_employee, axis=0)
+            # assign the predicted label for that employe
+            averaged_employee_features['cluster'][employee] = cluster_label_per_document[
+                employee_objective_indices[employee]]
 
-            # pick the label with most occurance for that employee
-            c = Counter(clusters_per_employee)
-            averaged_employee_features['cluster'][employee] = c.most_common(1)[0][0]
 
-        # 3) doing dimensionality reduction into 2d/3d Space
+            # 3) doing dimensionality reduction into 2d/3d Space
         # todo: find a more permanent solution for this
         # panda returns a array of array for the column feature vector. Converting from array of array to 2d array
         feature_vector_ = np.stack(averaged_employee_features['feature_vector'].to_numpy())
@@ -458,7 +448,7 @@ class Topic_Model:
 
         return averaged_employee_features
 
-    def wordcloud(self, sentences, algorithm):
+    def wordcloud(self, sentences, ngram, output_directory = None):
         '''
         Visualization Function
         This functions creates wordclouds as per the specified configurations through the user interface
@@ -467,26 +457,45 @@ class Topic_Model:
         :return:
         '''
 
+        if output_directory is None:
+            output_directory = self.dir
+
         if self.method == 'LDA':
             # we use the word_distribution method for word cloud as we only have probability
             # of that word belonging to the cluster from LDA
-            for k, cluster_word_distribution in self.get_top_words_lda(top=100).items():
-                get_wordcloud(word_distribution=cluster_word_distribution, topic=k, dir=self.dir)
+            for k, cluster_word_distribution in self.get_top_words_base(top=200).items():
+
+                cluster_word_distribution_dict = dict()
+                for item in cluster_word_distribution:
+                    cluster_word_distribution_dict[item[0]] = item[1]
+
+                get_wordcloud(dir=output_directory, word_distribution=cluster_word_distribution_dict, topic=k)
         else:
-            # for LDA + Bert, we have no distribution so we pick the most occuring words from the
-            # sentences belonging to that cluster
 
             # Getting indexes of sentences belonging to each cluster
             sentence_label_dict = dict()
-            for label in set(self.cluster_model.labels_):
-                sentence_label_dict[label] = [idx for idx, l in enumerate(self.cluster_model.labels_) if
-                                              l == label]
+            labels = self.cluster_model.labels_
+
+            for label in set(labels):
+                sentence_label_dict[label] = [idx for idx, l in enumerate(labels) if l == label]
+            topic_words = []
+            print("WordClouds for {} grams".format(str(ngram)))
+            # get topic words for all clusters
+            new_token_lists = []
             for i in range(self.k):
                 k_sentences = np.array(sentences)[sentence_label_dict[i]]
-                ngram_token_with_frequency = generate_n_gram(k_sentences, n=algorithm['n_gram'], separator='-',
-                                                             keep_stopwords=False, stem=False, keep_nouns_only=False)
+                ngram_token_with_frequency, token_list = generate_n_gram(k_sentences, n=ngram, separator='-',
+                                                                         keep_stopwords=False, stem=True,
+                                                                         keep_nouns_only=True)
 
-                get_wordcloud(topic=i, word_count_dict=ngram_token_with_frequency, dir=self.dir)
+                new_token_lists += token_list
+                topic_words.append(ngram_token_with_frequency)
+
+            topic_words = clean_topics_from_clusters(topics=topic_words, delete=False)
+
+            # generate wordclouds
+            for i in range(self.k):
+                get_wordcloud(topic=i, word_count_dict=topic_words[i], dir=output_directory)
 
     def get_labels(self):
         if self.method == 'LDA' or self.method == 'LSI':
@@ -503,34 +512,50 @@ class Topic_Model:
             sentence_label_dict[label] = [idx for idx, l in enumerate(labels) if l == label]
         # constructing cluster titles
         cluster_titles = []
+        topic_words = []
+
+        # first get the clean topic words
         for i in range(self.k):
             k_sentences = np.array(sentences)[sentence_label_dict[i]]
-            ngram_token_with_frequency = Counter(generate_n_gram(k_sentences, n=ngram, separator='-',
-                                                                 keep_stopwords=True, stem=False,
-                                                                 keep_nouns_only=False))
+            ngram_token_with_frequency, _ = generate_n_gram(k_sentences, n=ngram, separator='-',
+                                                            keep_stopwords=False, stem=True,
+                                                            keep_nouns_only=True)
+            topic_words.append(ngram_token_with_frequency)
 
-            cluster_title = ', '.join([key for key, value in ngram_token_with_frequency.most_common(6)])
+        # remove same words from clusters
 
+        topic_words = clean_topics_from_clusters(topics=topic_words, delete=False)
+
+        # pick the top ones and create label string out of it
+
+        for i in range(self.k):
+            cluster_token = Counter(topic_words[i])
+            cluster_title = ', '.join([key for key, value in cluster_token.most_common(10)])
             cluster_titles.append(cluster_title)
+
         return cluster_titles
 
     def get_employee_text(self,sentences, ids):
-        # get the indices of all objectives/documents/sentence for each employee
-        employee_objective_indices = dict()
-        for employee in set(ids):
-            employee_indices = [i for i, e in enumerate(ids) if (ids[i] == employee)]
-            employee_objective_indices[employee] = employee_indices
 
         np_sentences = np.array(sentences)
+        ids = np.array(ids)
+        # get the indices of all objectives/documents/sentence for each employee
+        employee_objective_indices = dict()
+        for employee in ids:
+            employee_indices = [i for i, e in enumerate(ids) if (ids[i] == employee)]
+            employee_objective_indices[employee] = employee_indices[0]
+
         employee_titles = dict()
-        for emp in list(set(ids)):
-            emp_indices = employee_objective_indices[emp]
-            employee_title = '. '.join([objective for objective in np_sentences[emp_indices]])
+
+        # constructing hover text (all objectives belonging to that employee)
+        for emp in ids:
+            emp_index = employee_objective_indices[emp]
+            employee_title = np_sentences[emp_index]
 
             employee_titles[emp] = emp + ': ' + employee_title[0:150]
         return employee_titles
 
-    def vis_employee_clusters(self, sentences, ids, vis_type, ngram):
+    def vis_employee_clusters(self, sentences, ids, vis_type, ngram, output_dir = None):
         '''
         Visualization Function
         :param sentences:
@@ -539,6 +564,9 @@ class Topic_Model:
         :param ngram:
         :return:
         '''
+
+        if output_dir is None:
+            output_dir = self.dir
         averaged_employee_features = self.compress_features(ids)
 
         cluster_titles = self.get_cluster_text(sentences,ngram)
@@ -547,7 +575,7 @@ class Topic_Model:
         employee_titles = self.get_employee_text(sentences,ids)
 
         #calling the visualization function
-        get_employee_clusters(averaged_employee_features, cluster_titles, employee_titles, vis=vis_type, dir = self.dir)
+        get_employee_clusters(averaged_employee_features, cluster_titles, employee_titles, vis=vis_type, dir = output_dir)
 
     def vis_pyldavis(self, token_lists):
         '''
@@ -560,7 +588,7 @@ class Topic_Model:
         corpus = [id2word.doc2bow(text) for text in token_lists]
 
         # The visualization call is straight forward so no need to create a separate function for it in visualization.py
-        vis = gs.prepare(self.ldamodel, corpus, id2word)
+        vis = gs.prepare(self.basemodel, corpus, id2word)
         pyLDAvis.show(vis)
 
     def quick_stats(self, ids):

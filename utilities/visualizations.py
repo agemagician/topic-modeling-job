@@ -45,8 +45,8 @@ def get_wordcloud(token_lists=None, topic=None, word_distribution=None, word_cou
     plt.imshow(wordcloud)
     plt.axis("off")
     plt.tight_layout(pad=0)
-
-    plt.savefig(dir + 'Topic' + str(topic) + '_wordcloud')
+    dir = os.path.join(dir,'Topic' + str(topic) + '_wordcloud' )
+    plt.savefig(dir)
     print('Getting wordcloud for topic {}. Done!'.format(topic))
 
 
@@ -63,8 +63,10 @@ def get_employee_clusters(averaged_employee_features, cluster_titles ,employee_t
             features = np.stack(cluster_df['feature_vector_2d'].to_numpy())
 
             # normalize the features between 0 and 1
-            features = preprocessing.normalize(features)
-
+            #features = preprocessing.normalize(features)
+            min_ = features.min(axis=0)
+            max_ = features.max(axis=0)
+            features = (features - min_) / (max_ - min_)
             # constructing hover text for all employees belonging to that cluster
             employee_titles_this_cluster = [employee_titles[emp] for emp in cluster_df.index.values]
 
@@ -84,7 +86,8 @@ def get_employee_clusters(averaged_employee_features, cluster_titles ,employee_t
             traceorder='normal',
             font=dict(
                 size=10)))
-        path = dir + '2D_clusters.jpeg'
+        path = os.path.join(dir , '2D_clusters.jpeg')
+
     else:
         #vis is 3d (Employee Cluster 3D)
         fig = go.Figure()
@@ -96,7 +99,10 @@ def get_employee_clusters(averaged_employee_features, cluster_titles ,employee_t
             features = np.stack(cluster_df['feature_vector_3d'].to_numpy())
 
             # normalize the features between 0 and 1
-            features = preprocessing.normalize(features)
+            #features = preprocessing.normalize(features)
+            min_ = features.min(axis=0)
+            max_ = features.max(axis=0)
+            features = (features - min_) / (max_ - min_)
 
             # constructing hover text for all employees belonging to that cluster
             employee_titles_this_cluster = [employee_titles[emp] for emp in cluster_df.index.values]
@@ -119,7 +125,7 @@ def get_employee_clusters(averaged_employee_features, cluster_titles ,employee_t
             traceorder='normal',
             font=dict(
                 size=10)))
-    path = dir + '3D_clusters.jpeg'
+        path = os.path.join(dir, '2D_clusters.jpeg')
 
     fig.show()
     fig.write_image(path)
