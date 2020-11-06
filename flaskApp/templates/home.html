@@ -2,96 +2,45 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title> Topic Modeling Demo</title>
-
+    <title>Topic Modeling Analytic</title>
+    <link rel="stylesheet" href="static/css/main.css">
 </head>
 <body>
-
 {% extends "layout.html" %}
 {% block content %}
-<div class="indent">
 <div class="home">
+<h1>
 
-<form class="form-inline" method="POST" action="{{ url_for('result') }}">
-  <br class="form-group">
+    Merck Employee Analytic
 
-    <div class="input-group">
+</h1>
+Here you can find some information about how this platform works.
 
-        <span class="input-group-addon"> <h3></h3></span>
+    The framework includes 3 tabs
 
+    <div> <h4> Home:</h4> This tab provides information about navigating through the framework </div>
 
-        <h2>Algorithm</h2>
+    <div> <h4>Employee Analytic: </h4> Once the results are precomputed, you can do analytic by using different visualiztions and algorithms .
+        <p>Algorithm tab includes model selection, and other parameters such as Number of Clusters and N-gram</p>
+        <p>
+            Employee Cluster: This is your assumption. If you had objective of employees from 4 departments, you would assume
+            that the employee cluster is 4. You can also try different options to see which gives the best results. </p>
+            <p>
+            N-grams: When picking topic words for each cluster, this parameter lets you decide the n-gram for the words
+            N-gram = 1 would give you words such as "Talent" , "acquisition"
+            whereas N-gram = 2 would give you words like "Talent-Acquisition"</p>
 
-        <table style="width:100%">
-          <th>
-              <th>
-            <h3>Base Model </h3>
-            <select name="selected_base_model" class="selectpicker form-control">
-              {% for base in base_models %}
-              <option value="{{ base }}">{{ base }}</option>
-              {% endfor %}
-            </select>
-              </th>
+            <p>NOTE: you would only be able to see the options that have been precompute before hand.</p>
+    </div>
 
-            <th>
-                  <h3>Word Embedding </h3>
-            <select name="selected_embedding" class="selectpicker form-control">
-              {% for embedding in embeddings %}
-              <option value="{{ embedding }}">{{ embedding }}</option>
-              {% endfor %}
-            </select>
-              </th>
-
-            <th>
-              <h3>Number of Clusters </h3>
-            <select name="selected_k" class="selectpicker form-control">
-              {% for k in num_clusters %}
-              <option value="{{ k }}">{{ k }}</option>
-              {% endfor %}
-            </select>
-          </th>
-
-        <th>
-            <h3>N grams </h3>
-            <select name="selected_ngram" class="selectpicker form-control">
-              {% for grams in n_grams %}
-              <option value="{{ grams }}">{{ grams }}</option>
-              {% endfor %}
-            </select>
-
-          </th>
-          </tr>
-        </table>
-
-            <h2>Visualizations </h2>
+    <div><h4> Precompute Data:</h4> Since running the algorithm can take some time, there is a separate tab which allows you to
+        train all models and precompute the results for faster loading when doing analytics.
     <p>
-        <table style="width:100%">
-          <tr>
-            {% for vis in visualizations %}
-            <th>
+        In this tab, you can upload a file (csv or excel) with new data. The data file must contains the following columns 'User ID (anonymus)','Objective_Name', 'Objective_Metric'
+        You can also pick the values of cluster and n-gram you want to precompute.</p>
 
-                <figure >
+    </div>
 
-                    <img src=" {{vis.path}}"  width="194" height="194" >
-
-                <figcaption>{{vis.name}}</figcaption>
-                </figure>
-                <input type="radio" name="selected_vis" id="{{vis.i}}" value="{{vis.i}}" >
-
-            </th>
-
-    {% endfor %}
-          </tr>
-        </table>
-
-    </p>
-            </div>
-
-      <br>
-    <button type="submit" class="button" style="margin: 0;position: absolute; left: 50%; -ms-transform: translateX(-50%); transform: translateX(-50%);">Generate Clusters</button>
-
-</form>
-</div>
 </div>
 {% endblock %}
 </body>

@@ -371,15 +371,17 @@ def get_embeddings(model_name=None, file_name=None, sentences=None, saved_embedd
         os.makedirs(output_folder)
 
     # save the embedding
-    file_name = output_folder + model_name + '_embeddings.json'
+    file_name = os.path.join(output_folder, model_name + '_embeddings.json')
     with open(file_name, 'w') as fp:
         json.dump(sentence_embedding, fp)
 
     # save the attention, if it is there
     if attention is not None:
-        file_name = output_folder + model_name + '_attention.json'
+        file_name = os.path.join(output_folder, model_name + '_attention.json')
         with open(file_name, 'w') as fp:
             json.dump(sentence_embedding, fp)
+
+    #todo: also write embedding_tokens somewhere
 
     return sentence_embedding, attention, embedding_tokens
 

@@ -235,7 +235,7 @@ def preprocess_documents(file=None,
 
     if not os.path.exists(dr):
         os.makedirs(dr)
-    temp_df.to_pickle(dr + "use_this_data.pkl")
+    temp_df.to_pickle(os.path.join(dr, "use_this_data.pkl"))
 
     return ids, sentences_list, token_lists, docs_titles
 

@@ -1,8 +1,8 @@
 # Importing the required python modules
 from models.embeddings_model import get_embeddings
 from models.autoencoder_model import Autoencoder
-from utilities.utils import generate_n_gram, clean_topics_from_clusters, get_main_topics
-from utilities.visualizations import get_employee_clusters, get_wordcloud,  create_hist, vis_3d, vis_2d
+from utilities.utils import generate_n_gram, clean_topics_from_clusters
+from utilities.visualizations import get_wordcloud,  create_hist, vis_3d, vis_2d
 from datetime import datetime
 import gensim
 from gensim import corpora, models
@@ -11,8 +11,7 @@ import numpy as np
 import pandas as pd
 from collections import Counter
 import torch
-import pyLDAvis
-from pyLDAvis import gensim as gs
+
 import os
 from sklearn.metrics import silhouette_score
 from gensim.models.coherencemodel import CoherenceModel
@@ -502,94 +501,6 @@ class Topic_Model:
             return np.argmax(self.vec[self.base], axis=1)
         else:
             return self.cluster_model.labels_
-    def get_cluster_text(self, sentences, ngram):
-
-        # Getting indexes of sentences belonging to each cluster
-        sentence_label_dict = dict()
-
-        labels = self.get_labels()
-        for label in set(labels):
-            sentence_label_dict[label] = [idx for idx, l in enumerate(labels) if l == label]
-        # constructing cluster titles
-        cluster_titles = []
-        topic_words = []
-
-        # first get the clean topic words
-        for i in range(self.k):
-            k_sentences = np.array(sentences)[sentence_label_dict[i]]
-            ngram_token_with_frequency, _ = generate_n_gram(k_sentences, n=ngram, separator='-',
-                                                            keep_stopwords=False, stem=True,
-                                                            keep_nouns_only=True)
-            topic_words.append(ngram_token_with_frequency)
-
-        # remove same words from clusters
-
-        topic_words = clean_topics_from_clusters(topics=topic_words, delete=False)
-
-        # pick the top ones and create label string out of it
-
-        for i in range(self.k):
-            cluster_token = Counter(topic_words[i])
-            cluster_title = ', '.join([key for key, value in cluster_token.most_common(10)])
-            cluster_titles.append(cluster_title)
-
-        return cluster_titles
-
-    def get_employee_text(self,sentences, ids):
-
-        np_sentences = np.array(sentences)
-        ids = np.array(ids)
-        # get the indices of all objectives/documents/sentence for each employee
-        employee_objective_indices = dict()
-        for employee in ids:
-            employee_indices = [i for i, e in enumerate(ids) if (ids[i] == employee)]
-            employee_objective_indices[employee] = employee_indices[0]
-
-        employee_titles = dict()
-
-        # constructing hover text (all objectives belonging to that employee)
-        for emp in ids:
-            emp_index = employee_objective_indices[emp]
-            employee_title = np_sentences[emp_index]
-
-            employee_titles[emp] = emp + ': ' + employee_title[0:150]
-        return employee_titles
-
-    def vis_employee_clusters(self, sentences, ids, vis_type, ngram, output_dir = None):
-        '''
-        Visualization Function
-        :param sentences:
-        :param ids:
-        :param vis_type:
-        :param ngram:
-        :return:
-        '''
-
-        if output_dir is None:
-            output_dir = self.dir
-        averaged_employee_features = self.compress_features(ids)
-
-        cluster_titles = self.get_cluster_text(sentences,ngram)
-
-        # constructing hover text (all objectives belonging to that employee)
-        employee_titles = self.get_employee_text(sentences,ids)
-
-        #calling the visualization function
-        get_employee_clusters(averaged_employee_features, cluster_titles, employee_titles, vis=vis_type, dir = output_dir)
-
-    def vis_pyldavis(self, token_lists):
-        '''
-
-        :param token_lists:
-        :return:
-        '''
-
-        id2word = corpora.Dictionary(token_lists)
-        corpus = [id2word.doc2bow(text) for text in token_lists]
-
-        # The visualization call is straight forward so no need to create a separate function for it in visualization.py
-        vis = gs.prepare(self.basemodel, corpus, id2word)
-        pyLDAvis.show(vis)
 
     def quick_stats(self, ids):
         '''

@@ -1,6 +1,4 @@
 body {
-  margin: 0;
-  padding: 0;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   color: #444;
 }
@@ -8,37 +6,43 @@ body {
  * Formatting the header area
  */
 header {
-  background-color: #DFB887;
+  background-color: #293e4d;
   height: 50px;
   width: 100%;
   opacity: .9;
-  margin-bottom: 10px;
+  margin-bottom: 20px;
 }
 header h1.logo {
-  margin: 0;
-  font-size: 1.7em;
+  margin: 8px;
+  font-size: 1.5em;
   color: #fff;
   text-transform: uppercase;
   float: left;
   top: 10px
+
 }
 header h1.logo:hover {
   color: #fff;
   text-decoration: none;
+  display: inline;
+
 }
 /*
  * Centering the body content
  */
 .container {
   width: 90%;
+
   margin: 0 auto;
 }
 div.home {
-  padding: 10px 10px 30px 10px;
-  background-color: #a5c6cf;
+padding: 10px 10px 10px 10px;
+  background-color: #d8e3da;
   -webkit-border-radius: 6px;
      -moz-border-radius: 6px;
           border-radius: 6px;
+
+
 }
 
 }
@@ -47,14 +51,10 @@ h1 {
   font-size: 1.5em;
   margin-top: 40px;
   text-align: center;
-  letter-spacing: -2px;
 }
 h3 {
-  font-size: 1.1em;
-  font-weight: 100;
+  font-size: 1.2em;
   margin-top: 20px;
-  text-align: center;
-  letter-spacing: -1px;
   color: #6b6b6d;
 }
 
@@ -65,7 +65,9 @@ h2 {
   text-align: center;
 }
 
+
 .indent{
+
    margin: 0;
    position: absolute;
    left: 50%;
@@ -74,13 +76,12 @@ h2 {
 }
 
 .button {
-  background-color: #DFB887;
+  background-color: #293e4d;
   border: 2px solid white;
   color: #fff;
   padding: 15px 32px;
   text-align: center;
   text-decoration: none;
-  display: inline-block;
   font-weight: bold;
   font-size: 16px;
 
@@ -97,6 +98,7 @@ h2 {
   margin-left: 35px;
 }
 .menu li a {
-  color: #444;
+  color: #fff;
+
   text-decoration: none;
 }

@@ -94,6 +94,59 @@ def tokenize_sentence(sent, keep_stopwords = True, stem=False, keep_nouns_only =
     tokenized_sent = [word for word in tokenized_sent if word.isalpha()]
     return tokenized_sent
 
+def get_cluster_text(sentences, labels,ngram):
+
+    # Getting indexes of sentences belonging to each cluster
+    sentence_label_dict = dict()
+    k  = len(set(labels))
+    for label in set(labels):
+        sentence_label_dict[label] = [idx for idx, l in enumerate(labels) if l == label]
+    # constructing cluster titles
+    cluster_titles = []
+    topic_words = []
+
+    # first get the clean topic words
+    for i in range(k):
+        k_sentences = np.array(sentences)[sentence_label_dict[i]]
+        ngram_token_with_frequency, _ = generate_n_gram(k_sentences, n=ngram, separator='-',
+                                                            keep_stopwords=False, stem=True,
+                                                            keep_nouns_only=True)
+        topic_words.append(ngram_token_with_frequency)
+
+    # remove same words from clusters
+
+    topic_words = clean_topics_from_clusters(topics=topic_words, delete=False)
+
+    # pick the top ones and create label string out of it
+
+    for i in range(k):
+        cluster_token = Counter(topic_words[i])
+        cluster_title = ', '.join([key for key, value in cluster_token.most_common(10)])
+        cluster_titles.append(cluster_title)
+
+    return cluster_titles
+
+def get_employee_text(sentences, ids):
+
+    np_sentences = np.array(sentences)
+    ids = np.array(ids)
+    # get the indices of all objectives/documents/sentence for each employee
+    employee_objective_indices = dict()
+    for employee in ids:
+        employee_indices = [i for i, e in enumerate(ids) if (ids[i] == employee)]
+        employee_objective_indices[employee] = employee_indices[0]
+
+    employee_titles = dict()
+
+    # constructing hover text (all objectives belonging to that employee)
+    for emp in ids:
+        emp_index = employee_objective_indices[emp]
+        employee_title = np_sentences[emp_index]
+
+        employee_titles[emp] = emp + ': ' + employee_title[0:150]
+    return employee_titles
+
+
 def generate_n_gram(sentences, n=2,separator = '-',  keep_stopwords = True, stem=False, keep_nouns_only = False, top = 30):
     '''
     personal thoughts: A very brain consuming function I had written in a while.

@@ -8,8 +8,15 @@
 
 {% extends "layout.html" %}
 {% block content %}
-   <div class="precompute">
-     <h1>Successfully computed Embeddings on the following data:  {{filename}} </h1>
+   <div class="home">
+    {% if success %}
+             <h1>Successfully computed Embeddings on the following data:  {{filename}} </h1>
+    {% else %}
+       <h1>Failed to Precompute results.</h1>
+        <p>
+            ERROR MESSAGE: {{ message }}
+        </p>
+    {% endif %}
 
 
 

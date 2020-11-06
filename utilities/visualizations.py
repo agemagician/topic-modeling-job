@@ -5,6 +5,7 @@ import numpy as np
 import os
 import plotly.graph_objects as go
 from sklearn import preprocessing
+import plotly
 
 
 #todo: move this function inside the topic model class
@@ -55,7 +56,7 @@ def get_employee_clusters(averaged_employee_features, cluster_titles ,employee_t
 
     fig = go.Figure()
     k = len(cluster_titles)
-    if vis == 'Employee Cluster 2D':
+    if vis == 0:
         for i, cl in enumerate(range(k)):
             cluster_df = averaged_employee_features[averaged_employee_features.cluster == cl]
 
@@ -86,7 +87,7 @@ def get_employee_clusters(averaged_employee_features, cluster_titles ,employee_t
             traceorder='normal',
             font=dict(
                 size=10)))
-        path = os.path.join(dir , '2D_clusters.jpeg')
+        path = os.path.join(dir , '2D_clusters.html')
 
     else:
         #vis is 3d (Employee Cluster 3D)
@@ -106,7 +107,7 @@ def get_employee_clusters(averaged_employee_features, cluster_titles ,employee_t
 
             # constructing hover text for all employees belonging to that cluster
             employee_titles_this_cluster = [employee_titles[emp] for emp in cluster_df.index.values]
-            print (employee_titles_this_cluster)
+
 
             fig.add_trace(go.Scatter3d(
                 x=features[:, 0],
@@ -125,11 +126,12 @@ def get_employee_clusters(averaged_employee_features, cluster_titles ,employee_t
             traceorder='normal',
             font=dict(
                 size=10)))
-        path = os.path.join(dir, '2D_clusters.jpeg')
+        path = os.path.join(dir, '2D_clusters.html')
 
-    fig.show()
-    fig.write_image(path)
+    #fig.show()
+    fig.write_html(path)
     print ("Saved Clusters to " , path)
+    #ok = fig.to_html(full_html=False)
 
 def create_hist(x, title=None, x_title = None, y_title = None, save= False, dir = None):
 
