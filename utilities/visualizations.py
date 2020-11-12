@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import plotly.graph_objects as go
-from sklearn import preprocessing
-import plotly
 
 
 #todo: move this function inside the topic model class

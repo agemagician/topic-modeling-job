@@ -252,11 +252,12 @@ def generate_sentence_embeddings(objectives, model_name, batch_size=100):
     '''
 
     model2transformer = {'bert-sent': 'bert-base-nli-mean-tokens',
-                         'roberta-sent': 'roberta-large-nli-stsb-mean-tokens',
+                         'roberta-sent': 'roberta-base-nli-stsb-mean-tokens',
                          # 'roberta-base':'roberta-base-nli-stsb-mean-tokens',
                          'distilbert-sent': 'distilbert-base-nli-stsb-mean-tokens'}
 
     # get the specfic model name for sentence transformer
+    print (model_name)
     model_name = model2transformer[model_name]
     embedder = SentenceTransformer(model_name)
     sentences_per_batch = batch_size

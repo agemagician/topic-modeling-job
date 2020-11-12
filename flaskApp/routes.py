@@ -20,12 +20,15 @@ from utilities.utils import get_cluster_text, get_employee_text
 @app.route('/home')
 def home():
 
-    return render_template('home.html'
-                           )
+    return render_template('home.html')
 @app.route('/', methods=['GET'])
 @app.route('/analytic')
 def analytic():
-
+    #read the details of precomputed configurations from metadata file
+    with open(metadata_path) as json_file:
+        data = json.load(json_file)
+        n_grams = data['selected_precompute_n_grams']
+        num_clusters = data['selected_precompute_k']
     return render_template('analytic.html', models = models,
                            num_clusters=num_clusters, n_grams = n_grams, visualizations=visualizations)
 
@@ -311,5 +314,5 @@ if os.path.exists(metadata_path):
         n_grams = data['selected_precompute_n_grams']
         num_clusters = data['selected_precompute_k']
 else:
-    print("Metadata file not found")
+    print("WARNING: Metadata file not found")
 
