@@ -23,7 +23,6 @@ from nltk.tokenize import word_tokenize
 nltk.download('wordnet')
 
 
-from utilities.document_preprocessing import preprocess_documents
 class Topic_Model:
     def __init__(self, base = 'LDA', k=3, use_AE = True, gamma = 1, embedding = None,
                  saved_embedding_dir = None, verbose= False, embedding_batch_size=None,

@@ -9,7 +9,8 @@ import os
 from utilities.utils import length_analysis
 from nltk.stem.wordnet import WordNetLemmatizer
 #downloads
-#nltk.download('crubadan')
+nltk.download('crubadan')
+nltk.download('punkt')
 
 # sentence level cleaning
 def preprocess_sent(s):
