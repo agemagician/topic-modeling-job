@@ -26,7 +26,7 @@ ENV PORT 80
 #define the enviroment variable
 ENV NAME MerckWorld
 
-ENTRYPOINT [ "python3" ]
+ENTRYPOINT [ "python" ]
 
 CMD [ "app.py" ]
 
