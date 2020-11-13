@@ -8,39 +8,50 @@
 <body>
 {% extends "layout.html" %}
 {% block content %}
+<div class="indent">
 <div class="home">
-<h1>
 
-    Merck Employee Analytic
+<h1 style="text-align:center;">
+
+    Merck Employee Analytic Framework
 
 </h1>
 Here you can find some information about how this platform works.
 
     The framework includes 3 tabs
 
-    <div> <h4> Home:</h4> This tab provides information about navigating through the framework </div>
+    <div > <h2> Home</h2> This tab provides information about navigating through the framework. </div>
 
-    <div> <h4>Employee Analytic: </h4> Once the results are precomputed, you can do analytic by using different visualiztions and algorithms .
-        <p>Algorithm tab includes model selection, and other parameters such as Number of Clusters and N-gram</p>
-        <p>
-            Employee Cluster: This is your assumption. If you had objective of employees from 4 departments, you would assume
-            that the employee cluster is 4. You can also try different options to see which gives the best results. </p>
-            <p>
-            N-grams: When picking topic words for each cluster, this parameter lets you decide the n-gram for the words
-            N-gram = 1 would give you words such as "Talent" , "acquisition"
-            whereas N-gram = 2 would give you words like "Talent-Acquisition"</p>
-
-            <p>NOTE: you would only be able to see the options that have been precompute before hand.</p>
-    </div>
-
-    <div><h4> Precompute Data:</h4> Since running the algorithm can take some time, there is a separate tab which allows you to
-        train all models and precompute the results for faster loading when doing analytics.
+    <div>
+    <h2> Employee Analytic </h2>
+        <p> In order to use this tab, the results should be precomputed through <b> Precompute Data </b>tab.
+        <p> This tab allows to select a visualization, Model, and other parameters such as Number of Clusters and N-gram. Below is a small description:</p>
     <p>
-        In this tab, you can upload a file (csv or excel) with new data. The data file must contains the following columns 'User ID (anonymus)','Objective_Name', 'Objective_Metric'
-        You can also pick the values of cluster and n-gram you want to precompute.</p>
+            <b>1) Employee Cluster:</b> This is your assumption. If you had objective of employees from 4 departments, you would assume
+            that the employee cluster is 4. You can also try different options to see which gives the best results. </p>
+
+            <p>
+            <b>2) N-grams:</b> When picking topic words for each cluster, this parameter lets you decide the n-gram for the words
+            N-gram = 1 would give you words such as "Talent" , "acquisition"
+            whereas N-gram = 2 would give you words like "Talent-Acquisition"
+            </p>
+
+            <p>
+                <b>3) Model: </b> Offers different choice of models to use for clustering the employees
+            </p>
+            <p>
+                <b>4) Visualizations: </b> Various types of visualizations are available. More information related to each visualization is availble when results are displayed.
+            </p>
+    <p> <b>NOTE: you would only be able to see the options that have been precompute before hand. </b></p>
+    </div>
+    <div><h2> Precompute Data:</h2> Since running the algorithm can take some time, there is a separate tab which allows you to
+        train all models and precompute the results beforehand for faster loading when doing analytics.
+    <p>
+        In this tab, you can upload a file (csv or excel) with new data. The data file must contains the following columns <b>'User ID (anonymus)', 'Objective_Name', 'Objective_Metric' </b>.</p>
+        <p>You can also set the configurations for precompute.</p>
 
     </div>
-
+</div>
 </div>
 {% endblock %}
 </body>
