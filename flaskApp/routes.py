@@ -229,57 +229,62 @@ def result():
     #reading the configurations
     algorithm = dict()
    # compute model parameters
-    try:
-        model = request.form.get('selected_model')
-        if model == 'LDA Model + Bert Embedding':
-            algorithm['base'] = 'LDA'
-            algorithm['embedding'] = 'bert-sent'
 
-        elif model == 'LDA Model + Roberta Embedding':
-            algorithm['base'] = 'LDA'
-            algorithm['embedding'] = 'roberta-sent'
 
-        elif model == 'Bert Embedding':
-            algorithm['base'] = None
-            algorithm['embedding'] = 'bert-sent'
+    model = request.form.get('selected_model')
 
-        elif model == 'Roberta Embedding':
-            algorithm['base'] = None
-            algorithm['embedding'] = 'roberta-sent'
 
-        elif model ==  'LDA Model':
-            algorithm['base'] ='LDA'
-            algorithm['embedding'] = None
+    if model == 'LDA Model + Bert Embedding':
+        algorithm['base'] = 'LDA'
+        algorithm['embedding'] = 'bert-sent'
 
-        # compute number of cluster
-        algorithm['k'] = int(request.form.get('selected_k'))
+    elif model == 'LDA Model + Roberta Embedding':
+        algorithm['base'] = 'LDA'
+        algorithm['embedding'] = 'roberta-sent'
 
-        # compute n-gram
-        algorithm['n_gram'] =int( request.form.get('selected_ngram'))
+    elif model == 'Bert Embedding':
+        algorithm['base'] = None
+        algorithm['embedding'] = 'bert-sent'
 
-        # compute visualization
-        algorithm['visualization'] = visualizations[int(request.form.get('selected_vis'))]['i']
-        #no embeddings would be used automatically if pyLDAvis is used for visualization as it only works on LDA alone
-        #todo:  control this from the frontend
-        if algorithm['visualization'] == 3:
-            algorithm['base'] == 'LDA'
-            algorithm['embedding'] = None
+    elif model == 'Roberta Embedding':
+        algorithm['base'] = None
+        algorithm['embedding'] = 'roberta-sent'
 
-        # reading the data
-        data = pd.read_pickle(os.path.join(base_folder, 'flask' ,  processed_file))
-        sentences = list(data['sentences'])
-        token_lists = list(data['token_list'])
-        ids = list(data['id'])
-        sentences_titles = list(data['sentences_titles'])
+    elif model ==  'LDA Model' or model == None:
+        algorithm['base'] ='LDA'
+        algorithm['embedding'] = None
 
-        #construct path to the folder where all the precomputed results are stored,
+    # compute number of cluster
+    algorithm['k'] = int(request.form.get('selected_k'))
 
-        output_folder = os.path.join('flask', str(algorithm['visualization']), 'base_' + str(algorithm['base']),
+    # compute n-gram
+    algorithm['n_gram'] =int( request.form.get('selected_ngram'))
+
+    # compute visualization
+    algorithm['visualization'] = visualizations[int(request.form.get('selected_vis'))]['i']
+
+    #no embeddings would be used automatically if pyLDAvis is used for visualization as it only works on LDA alone
+    # fail-case in case the frontend fails
+    if algorithm['visualization'] == 3:
+        print ("ldaviskeepsafe")
+        algorithm['base'] = 'LDA'
+        algorithm['embedding'] = None
+
+    # reading the data
+    data = pd.read_pickle(os.path.join(base_folder, 'flask' ,  processed_file))
+    sentences = list(data['sentences'])
+    token_lists = list(data['token_list'])
+    ids = list(data['id'])
+    sentences_titles = list(data['sentences_titles'])
+
+    #construct path to the folder where all the precomputed results are stored,
+
+    output_folder = os.path.join('flask', str(algorithm['visualization']), 'base_' + str(algorithm['base']),
                                          'Embedding_' + str(algorithm ['embedding']), 'k_' + str(algorithm['k']),
                                          'ngram_' + str(algorithm['n_gram']))
 
-    except:
-        return render_template('results.html', algorithm=algorithm, images=[], success=False, viz=[])
+    #except:
+    #    return render_template('results.html', algorithm=algorithm, images=[], success=False, viz=[])
 
     # get list of all word cloud images from the directory
     extensions = [".jpg", ".jpeg", ".png"]
