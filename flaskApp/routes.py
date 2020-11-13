@@ -9,14 +9,17 @@ from gensim import corpora
 import pyLDAvis
 from pyLDAvis import gensim as gs
 import nltk
-nltk.download('crubadan')
-nltk.download('punkt')
+
 
 from utilities.document_preprocessing import preprocess_documents
 from models.topic_model import Topic_Model
 from models.embeddings_model import get_embeddings
 from utilities.visualizations import get_employee_clusters
 from utilities.utils import get_cluster_text, get_employee_text
+
+nltk.download('crubadan')
+nltk.download('punkt')
+nltk.download('averaged_perceptron_tagger')
 
 @app.route('/', methods=['GET'])
 @app.route('/home')
