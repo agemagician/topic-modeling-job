@@ -18,8 +18,6 @@ from models.embeddings_model import get_embeddings
 from utilities.visualizations import get_employee_clusters
 from utilities.utils import get_cluster_text, get_employee_text
 
-
-
 @app.route('/', methods=['GET'])
 @app.route('/home')
 def home():
@@ -44,22 +42,29 @@ def precompute():
     # global variables to be used by progress function
     global temp_data_folder, destination, selected_precompute_k, selected_precompute_n_grams
     if request.method == 'POST':
+        try:
+            temp_data_folder = os.path.join(base_folder, 'temp')
+            if not os.path.exists(temp_data_folder):
+                os.makedirs(temp_data_folder)
+            upload = request.files.get("file")
+            if not upload.filename:
+                return render_template('precompute.html', success=False,
+                                       filename=upload.filename, message="Please Select an input file.")
+            filename = upload.filename
+            destination = os.path.join(temp_data_folder, filename)
+            upload.save(destination)
 
-        temp_data_folder = os.path.join(base_folder, 'temp')
-        if not os.path.exists(temp_data_folder):
-            os.makedirs(temp_data_folder)
-        upload = request.files.get("file")
-        if not upload.filename:
+            selected_precompute_k = [int(k) for k in request.form.getlist('precompute_k')]
+            selected_precompute_n_grams = [int(gram) for gram in request.form.getlist('precompute_ngrams')]
+
+            if len (selected_precompute_k) == 0 or len (selected_precompute_n_grams) == 0:
+
+                return render_template('precompute.html', success=False,
+                                           filename=upload.filename, message="Please Select values for k and n-gram.")
+            return render_template('progress.html',filename=filename)
+        except:
             return render_template('precompute.html', success=False,
-                                   filename=upload.filename, message="Please Upload a file to precompute on.")
-        filename = upload.filename
-        destination = os.path.join(temp_data_folder, filename)
-        upload.save(destination)
-
-        selected_precompute_k = [int(k) for k in request.form.getlist('precompute_k')]
-        selected_precompute_n_grams = [int(gram) for gram in request.form.getlist('precompute_ngrams')]
-
-        return render_template('progress.html',filename=filename)
+                                              filename=filename, message = "Failed to precompute data. Please Try again or contact Admin")
 
 @app.route('/progress')
 def progress():
@@ -67,131 +72,131 @@ def progress():
     def compute(temp_data_folder, destination, selected_precompute_k, selected_precompute_n_grams ):
 
         progress = 0
+        try:
+            while progress <= 100:
 
-        while progress <= 100:
+                start_time = time.time()
+                success = False
+                metadata = dict()
+                # reading and preprocessing the data
+                ids, sentences, token_lists, sentences_titles = preprocess_documents(
+                    destination,
+                    verbose=False,
+                    dr=temp_data_folder,
+                    max_sent_length=1001)
 
-            start_time = time.time()
-            success = False
-            metadata = dict()
-            # reading and preprocessing the data
-            ids, sentences, token_lists, sentences_titles = preprocess_documents(
-                destination,
-                verbose=False,
-                dr=temp_data_folder,
-                max_sent_length=1001)
+                # generating all possible combinations to compute
+                completed_tasks = 0
+                # to get the percentage done for progress bar in the front end
+                total_tasks = (len(selected_precompute_k) * len(base_models) * len(embeddings))
 
-            # generating all possible combinations to compute
-            completed_tasks = 0
-            # to get the percentage done for progress bar in the front end
-            total_tasks = (len(selected_precompute_k) * len(base_models) * len(embeddings))
+                for embedding in embeddings:
 
-            for embedding in embeddings:
+                    if embedding == None:
+                        embedding_path = None
+                    else:
+                        # computing path to store the selected embedding vector
+                        embedding_path = os.path.join(temp_data_folder,  embedding + "_embeddings.json")
 
-                if embedding == None:
-                    embedding_path = None
-                else:
-                    # computing path to store the selected embedding vector
-                    embedding_path = os.path.join(temp_data_folder,  embedding + "_embeddings.json")
+                        _ = get_embeddings(model_name=embedding, sentences=sentences,
+                                                       batch_size=100, dr=temp_data_folder)
 
-                    _ = get_embeddings(model_name=embedding, sentences=sentences,
-                                                   batch_size=100, dr=temp_data_folder)
+                    # get the selected values of k and also store inside the metadata file
 
-                # get the selected values of k and also store inside the metadata file
+                    metadata['selected_precompute_k'] = selected_precompute_k
 
-                metadata['selected_precompute_k'] = selected_precompute_k
+                    # stop execution if none of the values are selected
+                    if len(selected_precompute_k) == 0:
+                        return render_template('precompute.html', success=success,
+                                                           filename=upload.filename, message="Please Select atleast one value for clusters.")
+                    for k in selected_precompute_k:
 
-                # stop execution if none of the values are selected
-                if len(selected_precompute_k) == 0:
-                    return render_template('precompute.html', success=success,
-                                                       filename=upload.filename, message="Please Select atleast one value for clusters.")
-                for k in selected_precompute_k:
-
-                    for base in base_models:
-                        yield "data:" + str(progress) + "\n\n"
-                        completed_tasks += 1
-                        progress = int((completed_tasks / total_tasks) * 100)
+                        for base in base_models:
+                            yield "data:" + str(progress) + "\n\n"
+                            completed_tasks += 1
+                            progress = int((completed_tasks / total_tasks) * 100)
 
 
 
-                        if embedding == None and base == None:
-                            # if embedding and base model, both are not selected
-                            continue
-
-                        for visualization in visualizations:
-
-                            vis_id = visualization['i']
-                            #visualization is LDA vis which only works with LDA, skip the iteration when embedding in On
-                            if vis_id == 3 and base == None:
+                            if embedding == None and base == None:
+                                # if embedding and base model, both are not selected
                                 continue
 
-                            # get the values of the selected n_grams and store in the metadata
-                            metadata['selected_precompute_n_grams'] = selected_precompute_n_grams
-                            #stop execution if none of the values are selected
-                            if len(selected_precompute_n_grams) == 0:
-                                return render_template('precompute.html', success=success,
-                                                                   filename=upload.filename,
-                                                                   message="Please Select atleast one value for n-grams.")
+                            for visualization in visualizations:
 
-                            for gram in selected_precompute_n_grams:
+                                vis_id = visualization['i']
+                                #visualization is LDA vis which only works with LDA, skip the iteration when embedding in On
+                                if vis_id == 3 and base == None:
+                                    continue
 
-                                # construct the path to the output directory for the selected combination
-                                output_folder = os.path.join(temp_data_folder, str(vis_id), 'base_' + str(base),
-                                                                         'Embedding_' + str(embedding), 'k_' + str(k),
-                                                                         'ngram_' + str(gram))
+                                # get the values of the selected n_grams and store in the metadata
+                                metadata['selected_precompute_n_grams'] = selected_precompute_n_grams
+                                #stop execution if none of the values are selected
+                                if len(selected_precompute_n_grams) == 0:
+                                    return render_template('precompute.html', success=success,
+                                                                       filename=upload.filename,
+                                                                       message="Please Select atleast one value for n-grams.")
 
-                                # create the folder
-                                if not os.path.exists(output_folder):
-                                    os.makedirs(output_folder)
+                                for gram in selected_precompute_n_grams:
 
-                                # Create a Topic Model Object
-                                TopicModelObject = Topic_Model(base=base, k=k, verbose=False,
-                                                                           embedding=embedding,
-                                                                           saved_embedding_dir=embedding_path,
-                                                                           embedding_batch_size=100, use_AE=False,
-                                                                           output_attention=False)
+                                    # construct the path to the output directory for the selected combination
+                                    output_folder = os.path.join(temp_data_folder, str(vis_id), 'base_' + str(base),
+                                                                             'Embedding_' + str(embedding), 'k_' + str(k),
+                                                                             'ngram_' + str(gram))
 
-                                # Fit the topic model
-                                TopicModelObject.fit(sentences, token_lists, vis_clusters=False)
+                                    # create the folder
+                                    if not os.path.exists(output_folder):
+                                        os.makedirs(output_folder)
 
-                                if vis_id == 2:  # wordcloud
-                                    # generating and saving the word clouds for the defined clusters
-                                    TopicModelObject.wordcloud(sentences, gram, output_folder)
+                                    # Create a Topic Model Object
+                                    TopicModelObject = Topic_Model(base=base, k=k, verbose=False,
+                                                                               embedding=embedding,
+                                                                               saved_embedding_dir=embedding_path,
+                                                                               embedding_batch_size=100, use_AE=False,
+                                                                               output_attention=False)
 
-                                elif vis_id == 0 or vis_id == 1:
-                                    # if visualization is Employee Clusters using plotly, get the features and save in a pickle file
-                                    averaged_employee_features = TopicModelObject.compress_features(ids)
+                                    # Fit the topic model
+                                    TopicModelObject.fit(sentences, token_lists, vis_clusters=False)
 
-                                    labels = TopicModelObject.get_labels()
-                                    # pass it to the function to visualize the data
-                                    cluster_titles = get_cluster_text(sentences, labels, gram)
+                                    if vis_id == 2:  # wordcloud
+                                        # generating and saving the word clouds for the defined clusters
+                                        TopicModelObject.wordcloud(sentences, gram, output_folder)
 
-                                    # constructing hover text (all objectives belonging to that employee)
-                                    employee_titles = get_employee_text(sentences, ids)
+                                    elif vis_id == 0 or vis_id == 1:
+                                        # if visualization is Employee Clusters using plotly, get the features and save in a pickle file
+                                        averaged_employee_features = TopicModelObject.compress_features(ids)
 
-                                    # calling the visualization function
-                                    get_employee_clusters(averaged_employee_features, cluster_titles, employee_titles,
-                                                                      vis=vis_id,
-                                                                      dir=os.path.join(output_folder))
+                                        labels = TopicModelObject.get_labels()
+                                        # pass it to the function to visualize the data
+                                        cluster_titles = get_cluster_text(sentences, labels, gram)
 
-                                elif vis_id == 3:
-                                    # save the LDA Object
-                                    TopicModelObject.basemodel.save(os.path.join(output_folder, 'lda.model'))
+                                        # constructing hover text (all objectives belonging to that employee)
+                                        employee_titles = get_employee_text(sentences, ids)
 
-                                    id2word = corpora.Dictionary(token_lists)
-                                    corpus = [id2word.doc2bow(text) for text in token_lists]
+                                        # calling the visualization function
+                                        get_employee_clusters(averaged_employee_features, cluster_titles, employee_titles,
+                                                                          vis=vis_id,
+                                                                          dir=os.path.join(output_folder))
 
-                                    vis = gs.prepare(TopicModelObject.basemodel, corpus, id2word)
-                                    pyLDAvis.save_html(vis, os.path.join( output_folder, 'lda_vis.html'))
+                                    elif vis_id == 3:
+                                        # save the LDA Object
+                                        TopicModelObject.basemodel.save(os.path.join(output_folder, 'lda.model'))
 
-                                print("completed {} out of {} with progress {} %".format(completed_tasks, total_tasks,
-                                                                                         progress))
+                                        id2word = corpora.Dictionary(token_lists)
+                                        corpus = [id2word.doc2bow(text) for text in token_lists]
+
+                                        vis = gs.prepare(TopicModelObject.basemodel, corpus, id2word)
+                                        pyLDAvis.save_html(vis, os.path.join( output_folder, 'lda_vis.html'))
+
+                                    print("completed {} out of {} with progress {} %".format(completed_tasks, total_tasks,
+                                                                                             progress))
+                yield "data:" + str(progress) + "\n\n"
+                progress += 1
+                success = True
+
+        except:
+            progress = -1
             yield "data:" + str(progress) + "\n\n"
-            progress += 1
-            success = True
-
-        #except:
-        #    return render_template('precompute.html', success=success,
-        #                           filename=filename, message = "Failed to precompute data. Please Try again or contact Admin")
 
         #if the precompute process is a success, delete the previous data and replace it with the new one
         data_folder = os.path.join(base_folder,'flask')
@@ -211,9 +216,6 @@ def progress():
 
     return Response(compute(temp_data_folder, destination, selected_precompute_k, selected_precompute_n_grams),
                     mimetype='text/event-stream')
-
-
-
 
 @app.route("/result" , methods=['GET', 'POST'])
 def result():
@@ -328,7 +330,7 @@ n_grams = [1, 2]
 num_clusters = [2,3,4]
 embeddings = ['bert-sent', 'roberta-sent', None]
 base_models = ['LDA', None]
-precompute_k = [2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+precompute_k = [2,3,4,5,6,7,8]
 precompute_ngrams = [1, 2,3]
 visualizations = [
     {'i': 0, 'name': "Employee Cluster 2D", 'path':'static/gui/cluster_2D.png'},
