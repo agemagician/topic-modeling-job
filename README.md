@@ -12,26 +12,26 @@ two datasets
 
 ### 2) Directory Structure:
 
-- ###merck-employee-objectives
-    - ####__data (folder):__
+- ### merck-employee-objectives
+    - #### __data (folder):__
         - all the data files are stored here such as the job description dataset and the merck objective dataset are to be stored in this folder
-    - ####__flaskApp (folder):__
+    - #### __flaskApp (folder):__
         - This folder contains all the files needed for the flask App
-    - ####__models (folder):__
+    - #### __models (folder):__
         This folder contains the models that are used through out the framework.
         - __autoencoder_model.py:__ Contains an autoencoder used to learn the latent representations of the features.
         - __embeddings_models.py:__ All functions related to transformer models are found in this file.
         - __topic_model.py:__ This file contains a topic model class whihc is the backbone of this famework
-    - ####__utilities (folder):__ 
+    - #### __utilities (folder):__ 
         All utility functions can be found in this folder
-    - ####__app.py (file):__ 
+    - #### __app.py (file):__ 
     the starting point for the flask app
-    - ####__Dockerfile (file):__ 
+    - #### __Dockerfile (file):__ 
     Docker file for creating a docker image
-    - ####__enviroment.yml(file)__ : 
+    - #### __enviroment.yml(file)__ : 
     File to create a conda enviroment to run this project. Use the following command to create the enviroment
     > conda env create -f enviroment.yml
-    - ####__README.md (file):__ 
+    - #### __README.md (file):__ 
     this file
     - ####__topic-modeling-playground-colab.ipynb (Notebook):__ 
     Advanced level notebook for doing analytic on the dataset
@@ -61,7 +61,7 @@ This visualization is meant for the LDA model only
    - In the visualization, the employees can be visualized in 2D space. 
    - Each dot in the graph represents an employee and by hover some basic information of the employee can be seen.
    - The separate colors represent each cluster and on the top right, the topic words for each cluster can be seen
-####Employee clusters in 3D
+#### Employee clusters in 3D
    - In the visualization, the employees can be visualized in 3D space. 
    - Each dot in the graph represents an employee and by hover some basic information of the employee can be seen.
    - The separate colors represent each cluster and on the top right, the topic words for each cluster can be seen.
