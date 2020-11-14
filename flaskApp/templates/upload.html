@@ -13,7 +13,7 @@
 
      <h1>Upload a file to precomputed the results.</h1>
 
-
+    <p>The file must have the following columns 'User ID (anonymus)','Objective_Name', 'Objective_Metric' </p>
     <h4>accepted formats: '.csv' | '.xlsx' </h4>
 
                <form  id="upload-form" action="{{ url_for('precompute') }}" method="POST" enctype="multipart/form-data">
@@ -36,8 +36,6 @@
                    {% elif k == 3%}
                  <input type="checkbox" name="precompute_k" value="{{ k }}" id="{{ k }}" checked="checked"/>
                    {% elif k == 4%}
-                 <input type="checkbox" name="precompute_k" value="{{ k }}" id="{{ k }}" checked="checked"/>
-                   {% elif k == 6%}
                  <input type="checkbox" name="precompute_k" value="{{ k }}" id="{{ k }}" checked="checked"/>
                 {% else %}
                  <input type="checkbox" name="precompute_k" value="{{ k }}" id="{{ k }}"/>
@@ -63,8 +61,6 @@
                 {% else %}
                  <input type="checkbox" name="precompute_ngrams" value="{{ n_gram }}" id="{{ n_gram }}"/>
                 {% endif %}
-
-
 
     {% endfor %}
 

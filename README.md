@@ -35,8 +35,7 @@ two datasets
     this file
     - ####__topic-modeling-playground-colab.ipynb (Notebook):__ 
     Advanced level notebook for doing analytic on the dataset
-    - ####__word-embedding-playground.ipynb (Notebook):__ 
-    notebook to run the embeddings_model.py
+
 ### 3) Code Entry point:
 
 There are 2 ways to use this framework.
