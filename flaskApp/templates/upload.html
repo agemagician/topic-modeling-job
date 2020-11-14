@@ -13,7 +13,7 @@
 
      <h1>Upload a file to precomputed the results.</h1>
 
-    <p>The file must have the following columns 'User ID (anonymus)','Objective_Name', 'Objective_Metric' </p>
+    <p>The file must have the following columns 'Id', 'Title', 'FullDescription' </p>
     <h4>accepted formats: '.csv' | '.xlsx' </h4>
 
                <form  id="upload-form" action="{{ url_for('precompute') }}" method="POST" enctype="multipart/form-data">

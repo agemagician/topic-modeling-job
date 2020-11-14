@@ -29,13 +29,15 @@ def home():
 @app.route('/analytic')
 def analytic():
     #read the details of precomputed configurations from metadata file
-    with open(metadata_path) as json_file:
-        data = json.load(json_file)
-        n_grams = data['selected_precompute_n_grams']
-        num_clusters = data['selected_precompute_k']
-    return render_template('analytic.html', models = models,
-                           num_clusters=num_clusters, n_grams = n_grams, visualizations=visualizations)
-
+    try:
+        with open(metadata_path) as json_file:
+            data = json.load(json_file)
+            n_grams = data['selected_precompute_n_grams']
+            num_clusters = data['selected_precompute_k']
+        return render_template('analytic.html', models = models,
+                               num_clusters=num_clusters, n_grams = n_grams, visualizations=visualizations)
+    except:
+        return render_template('results.html', success=False, algorithm = {})
 @app.route('/upload', methods=['GET', 'POST'])
 def upload():
     return render_template('upload.html', precompute_k=precompute_k, precompute_ngrams=precompute_ngrams)
@@ -82,7 +84,7 @@ def progress():
                 success = False
                 metadata = dict()
                 # reading and preprocessing the data
-                ids, sentences, token_lists, sentences_titles = preprocess_documents(
+                ids, sentences, token_lists = preprocess_documents(
                     destination,
                     verbose=False,
                     dr=temp_data_folder,
@@ -336,8 +338,8 @@ base_models = ['LDA', None]
 precompute_k = [2,3,4,5,6,7,8]
 precompute_ngrams = [1, 2,3]
 visualizations = [
-    {'i': 0, 'name': "Employee Cluster 2D", 'path':'static/gui/cluster_2D.png'},
-       {'i': 1, 'name': "Employee Cluster 3D", 'path':'static/gui/cluster_3D.png'},
+    {'i': 0, 'name': "Job Cluster 2D", 'path':'static/gui/cluster_2D.png'},
+       {'i': 1, 'name': "Job Cluster 3D", 'path':'static/gui/cluster_3D.png'},
        {'i': 2, 'name': "Word Cloud", 'path':'static/gui/wordcloud.png'},
         {'i': 3, 'name': "LDA Vis", 'path':'static/gui/lda_vis.png'}
     ]

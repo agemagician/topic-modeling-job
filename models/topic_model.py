@@ -629,34 +629,3 @@ class Topic_Model:
         vis_2d(vec_2d, lbs)
 
         return score
-
-'''
-file = "../data/job_small.xlsx"
-
-
-ids, sentences, token_lists = preprocess_documents(file, verbose = False,
-                                                   dr = "output/preprocessed_data/minijob/",
-                                                   subset = 50, max_sent_length=50)
-
-# define the numbe of clusters
-k = 4
-
-# Define the topic model object
-TopicModelObject = Topic_Model(base = None, k = k, verbose = False, embedding = 'bert',
-                               saved_embedding_dir = None,
-                               embedding_batch_size = 500, use_AE= False, output_attention=True)
-
-TopicModelObject.fit(sentences, token_lists, epoch=5)
-
-labels = TopicModelObject.cluster_model.labels_
-sentence_label_dict = dict()
-
-for label in set(labels):
-    sentence_label_dict[label] = [idx for idx, l in enumerate(labels) if l == label]
-for i in range(TopicModelObject.k):
-
-    token_with_frequency, token_list = TopicModelObject.get_top_words_using_attention (
-        sentence_label_dict=sentence_label_dict, cluster_id = i, layer = 1, head = None, top = 150)
-
-
-'''
