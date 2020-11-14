@@ -67,3 +67,8 @@ This visualization is meant for the LDA model only
    - The separate colors represent each cluster and on the top right, the topic words for each cluster can be seen.
    - It is also possible to rotate the space by left clicking the mouse and moving it and zooming into the space by using the small
         wheel on the the mouse.
+
+### 5) Good to Know
+- The framework operates on english language and hence ignores all text belonging to foreign languages
+- It concatenates the all the objectives belonging to a user into one long objective as part of the proprocessing
+- It drops all duplicated entries from the data as part of the proprocessing step

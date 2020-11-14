@@ -161,7 +161,7 @@ def generate_embedding(objectives, model_name, batch_size=100,output_attention=F
     else:
         dev = "cpu"
     device = torch.device(dev)
-    print(device)
+    print("using ", device)
 
     # Put the model in "evaluation" mode, meaning feed-forward operation.
     model.eval()
