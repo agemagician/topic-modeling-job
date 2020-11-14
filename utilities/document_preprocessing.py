@@ -241,4 +241,4 @@ def preprocess_documents(file=None,
 
 #preprocess_documents("/home/anum/Downloads/25828_32915_compressed_Train_rev1.csv/Train_rev1.csv",  dr = "../output/preprocessed_data/job/", subset = 10000 )
 
-preprocess_documents("../data/PMP_Skills_Matching_Pilot_2018_2019_small.xlsx" )
+#preprocess_documents("../data/PMP_Skills_Matching_Pilot_2018_2019_small.xlsx" )

@@ -197,25 +197,25 @@ def progress():
                 progress += 1
                 success = True
 
+
+
+            #if the precompute process is a success, delete the previous data and replace it with the new one
+            data_folder = os.path.join(base_folder,'flask')
+            temp_data_folder = os.path.join(base_folder, 'temp')
+            if success:
+
+                #write the metadata related to precomputed stuff into a file
+                metadata_path  = os.path.join(temp_data_folder, 'metadata.json')
+                with open(metadata_path, 'w') as outfile:
+                    json.dump(metadata, outfile)
+                if os.path.exists(data_folder):
+                    shutil.rmtree(data_folder)
+                shutil.move(temp_data_folder, data_folder)
+
+                print("Precompute took {} seconds".format(time.time() - start_time))
         except:
             progress = -1
             yield "data:" + str(progress) + "\n\n"
-
-        #if the precompute process is a success, delete the previous data and replace it with the new one
-        data_folder = os.path.join(base_folder,'flask')
-        temp_data_folder = os.path.join(base_folder, 'temp')
-        if success:
-
-            #write the metadata related to precomputed stuff into a file
-            metadata_path  = os.path.join(temp_data_folder, 'metadata.json')
-            with open(metadata_path, 'w') as outfile:
-                json.dump(metadata, outfile)
-            if os.path.exists(data_folder):
-                shutil.rmtree(data_folder)
-            os.rename(temp_data_folder, data_folder)
-
-            print("Precompute took {} seconds".format(time.time() - start_time))
-
 
     return Response(compute(temp_data_folder, destination, selected_precompute_k, selected_precompute_n_grams),
                     mimetype='text/event-stream')
