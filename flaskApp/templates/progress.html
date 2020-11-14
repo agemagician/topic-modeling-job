@@ -18,7 +18,7 @@
 
 		}
 		if(event.data == -1){
-			$('.progress-bar').css('width', event.data+'%').attr('aria-valuenow', event.data);
+			$('.progress-bar').css('width', 100+'%').attr('aria-valuenow', 100);
 			$('.progress-bar-label').text('Precompute Failed. ');
 			source.close()
 		}
@@ -32,7 +32,7 @@
 {% block content %}
 
 <div class="home">
-	<h3>Pre-computing results on the following file: {{filename}} </h3>
+	<h4>Pre-computing results on the following file: {{filename}} </h4>
 
 
 	<div class="progress" style="width: 50%; margin: 50px;">
@@ -41,9 +41,9 @@
 
 		</div>
 	</div>
-
-	<h3> NOTE: If it fails to precompute data then, Please go back and select a smaller value of k. maybe the data doesn't have that many clusters in it. If error still persists, contact anumafzaldogar@gmail.com </p>
-</h3>
+	<h4> Do not close this window untill the precompute is finished. Please Navigate back to Employee Analytic tab once it is completed. </h4>
+	<h5> NOTE: If it fails to precompute data then, Please go back and select a smaller value of k. maybe the data doesn't have that many clusters in it. </h5> <h5>If error still persists, check the logs or contact anumafzaldogar@gmail.com </p>
+</h5>
 
 
 	</div>

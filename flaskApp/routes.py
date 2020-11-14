@@ -76,7 +76,7 @@ def progress():
 
         progress = 0
         try:
-            while progress <= 100:
+            while progress != 100:
 
                 start_time = time.time()
                 success = False
@@ -193,19 +193,14 @@ def progress():
 
                                     print("completed {} out of {} with progress {} %".format(completed_tasks, total_tasks,
                                                                                              progress))
-                yield "data:" + str(progress) + "\n\n"
-                progress += 1
-                success = True
 
+                # if the precompute process is a success, delete the previous data and replace it with the new one
+                data_folder = os.path.join(base_folder, 'flask')
+                data_folder = None
+                temp_data_folder = os.path.join(base_folder, 'temp')
 
-
-            #if the precompute process is a success, delete the previous data and replace it with the new one
-            data_folder = os.path.join(base_folder,'flask')
-            temp_data_folder = os.path.join(base_folder, 'temp')
-            if success:
-
-                #write the metadata related to precomputed stuff into a file
-                metadata_path  = os.path.join(temp_data_folder, 'metadata.json')
+                # write the metadata related to precomputed stuff into a file
+                metadata_path = os.path.join(temp_data_folder, 'metadata.json')
                 with open(metadata_path, 'w') as outfile:
                     json.dump(metadata, outfile)
                 if os.path.exists(data_folder):
@@ -213,9 +208,13 @@ def progress():
                 shutil.move(temp_data_folder, data_folder)
 
                 print("Precompute took {} seconds".format(time.time() - start_time))
+                yield "data:" + str(progress) + "\n\n"
+
         except:
             progress = -1
             yield "data:" + str(progress) + "\n\n"
+            if os.path.exists(temp_data_folder):
+                shutil.rmtree(temp_data_folder)
 
     return Response(compute(temp_data_folder, destination, selected_precompute_k, selected_precompute_n_grams),
                     mimetype='text/event-stream')
