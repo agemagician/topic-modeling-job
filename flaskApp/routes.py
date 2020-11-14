@@ -196,7 +196,6 @@ def progress():
 
                 # if the precompute process is a success, delete the previous data and replace it with the new one
                 data_folder = os.path.join(base_folder, 'flask')
-                data_folder = None
                 temp_data_folder = os.path.join(base_folder, 'temp')
 
                 # write the metadata related to precomputed stuff into a file
