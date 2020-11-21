@@ -12,7 +12,13 @@
 <h4>
 
     <p> Base Algorithm: {{algorithm.base}} </p>
-    <p> Embedding: {{algorithm.embedding}} </p>
+        {% if algorithm.embedding == "bert-sent"%}
+    <p> Embedding: BERT </p>
+    {% elif algorithm.embedding == "roberta-sent"%}
+    <p> Embedding: ROBERTA </p>
+     {% else %}
+     <p> Embedding: None </p>
+    {% endif %}
     <p> Number of cluster: {{algorithm.k}} </p>
     <p> N-gram: {{algorithm.n_gram}} </p>
 
