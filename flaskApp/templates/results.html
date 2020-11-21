@@ -9,25 +9,43 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="home">
-<h4>
 
-    <p> Base Algorithm: {{algorithm.base}} </p>
-        {% if algorithm.embedding == "bert-sent"%}
-    <p> Embedding: BERT </p>
-    {% elif algorithm.embedding == "roberta-sent"%}
-    <p> Embedding: ROBERTA </p>
-     {% else %}
-     <p> Embedding: None </p>
-    {% endif %}
-    <p> Number of cluster: {{algorithm.k}} </p>
-    <p> N-gram: {{algorithm.n_gram}} </p>
-
-</h4>
 
     {% if success %}
 
-  
-    <p>
+
+        <p style="align=left; font-size: 1.6em; font-weight: 50; margin-top: 30px;"  >Visualization Description</p>
+    {% if algorithm.visualization == 2%}
+    <ul>
+        <li>Each image(wordcloud) represents a cluster of jobs with similiar description.</li>
+        <li>The words in each wordcloud are the main themes discussed in the jobs belonging to that cluster</li>
+    </ul>
+
+    {% elif algorithm.visualization == 3%}
+    <ul>
+        <li>This visualization gives an indepth analysis of LDA model in terms of probabilities. </li>
+        <li>It shows information such as the probability of each topic belonging to all clusters or the top words of a cluster and many other similiar informations.</li>
+    </ul>
+
+    {% elif algorithm.visualization == 0%}
+    <ul>
+        <li>This graph shows the job in a 2D space with respect to their objective descriptions.</li>
+        <li>Each dot in the graph represents a job whose information can be seen by hovering on the circle.</li>
+        <li>Each color represent one cluster. The corresponding topic words for each cluster can be seen on the top right.</li>
+    </ul>
+
+    {% else %}
+    <ul>
+        <li>This graph shows the jobs in a 3D space with respect to their descriptions.</li>
+        <li>Each dot in the graph represents a job whose information can be seen by hovering on the circle</li>
+        <li>Each color represent one cluster. The corresponding topic words for each cluster can be seen on the top right.</li>
+        <li>It is also possible to rotate within the space by left clicking the mouse and moving it or zooming into the space by using the small
+        wheel on the the mouse.</li>
+    </ul>
+
+    {% endif %}
+
+
         <table>
 
         {% for image_row in images %}
@@ -48,34 +66,14 @@
         {% endfor %}
         </table>
 
-    </p>
+
 
 
     {% for v in html %}
-    <br>
-    <iframe src="{{url_for('static', filename=v.path)}}" height="900" width="1300" align="center"/>
+    <iframe src="{{url_for('static', filename=v.path)}}" height="900" width="1300" align="center"> </iframe>
     {% endfor %}
-    
-    <h3>About the Visualization:</h3>
-    {% if algorithm.visualization == 2%}
-    <h4> - Each image(wordcloud) represents a cluster of jobs with similiar description.</h4>
-    <h4> - The words in each wordcloud are the main topics discussed by the jobs belonging to that cluster</h4>
 
-    {% elif algorithm.visualization == 3%}
-    <h4>- This visualization gives an indepth analysis of the base model in terms of probabilities. </h4>
-    <h4>- It includes information such as the words and the probability of them belonging to a cluster.</h4>
-    {% elif algorithm.visualization == 0%}
-    <h4>- In the visualization, the jobs can be visualized in 2D space. </h4>
-    <h4> - Each dot in the graph represents an jobs and some basic information related to the node can be seen by hovering over it.</h4>
-    <h4> - The separate colors represent each cluster and on the top right, the topic words for each cluster can be seen</h4>
-    {% else %}
-    <h4>- In the visualization, the jobs can be visualized in 3D space. </h4>
-    <h4> - Each dot in the graph represents a job and some basic information related to the node can be seen by hovering over it.</h4>
-    <h4> - The separate colors represent each cluster and on the top right, the topic words for each cluster can be seen.</h4>
-    <h4> - It is also possible to rotate the space by left clicking the mouse and moving it and zooming into the space by using the
-        wheel on the the mouse.</h4>
-    {% endif %}
-    
+
     {% else %}
        <h1>ERROR: Either results have not been precomputed for this combination or some files are missing.</h1>
         <p>
