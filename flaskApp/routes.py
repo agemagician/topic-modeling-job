@@ -87,7 +87,7 @@ def progress():
                 metadata['selected_precompute_n_grams'] = selected_precompute_n_grams
 
                 # reading and preprocessing the data
-                ids, sentences, token_lists = preprocess_documents(
+                ids, sentences, token_lists, _ = preprocess_documents(
                     destination,
                     verbose=False,
                     dr=temp_data_folder,
@@ -142,6 +142,7 @@ def progress():
                                     if not os.path.exists(output_folder):
                                         os.makedirs(output_folder)
 
+                                    print (output_folder)
                                     # Create a Topic Model Object
                                     TopicModelObject = Topic_Model(base=base, k=k, verbose=False,
                                                                    embedding=embedding,
@@ -149,7 +150,8 @@ def progress():
                                                                    embedding_batch_size=100, use_AE=False,
                                                                    output_attention=False)
 
-                                    print (output_folder)
+
+
                                     # Fit the topic model
                                     TopicModelObject.fit(sentences, token_lists, vis_clusters=False)
 
@@ -174,7 +176,7 @@ def progress():
                                                               dir=os.path.join(output_folder))
 
                                     elif vis_id == 3:
-                          
+
 
                                         id2word = corpora.Dictionary(token_lists)
                                         corpus = [id2word.doc2bow(text) for text in token_lists]
@@ -238,7 +240,7 @@ def result():
             algorithm['base'] = None
             algorithm['embedding'] = 'roberta-sent'
 
-        elif model ==  'LDA Model' or model == None:
+        elif model ==  'LDA Model' or model == None: # it is disabled or LDA model is selected
             algorithm['base'] ='LDA'
             algorithm['embedding'] = None
 
@@ -246,7 +248,10 @@ def result():
         algorithm['k'] = int(request.form.get('selected_k'))
 
         # compute n-gram
-        algorithm['n_gram'] =int( request.form.get('selected_ngram'))
+        if request.form.get('selected_ngram') == None: #if it is disabled
+            algorithm['n_gram'] = 1
+        else: # get selected value
+            algorithm['n_gram'] =int( request.form.get('selected_ngram'))
 
         # compute visualization
         algorithm['visualization'] = visualizations[int(request.form.get('selected_vis'))]['i']
@@ -317,7 +322,7 @@ n_grams = [1, 2]
 num_clusters = [2,3,4]
 embeddings = ['bert-sent', 'roberta-sent', None]
 base_models = ['LDA', None]
-precompute_k = [4,5,6,7,8,9,10,11,12]
+precompute_k = [2, 3,4,5,6,7,8]
 precompute_ngrams = [1,2,3]
 visualizations = [
     {'i': 0, 'name': "Job Cluster 2D", 'path':'static/gui/cluster_2D.png'},
