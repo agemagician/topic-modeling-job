@@ -87,7 +87,7 @@ def progress():
                 metadata['selected_precompute_n_grams'] = selected_precompute_n_grams
 
                 # reading and preprocessing the data
-                ids, sentences, token_lists, _ = preprocess_documents(
+                ids, sentences, token_lists = preprocess_documents(
                     destination,
                     verbose=False,
                     dr=temp_data_folder,
