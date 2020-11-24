@@ -83,6 +83,9 @@ def progress():
                 start_time = time.time()
                 success = False
                 metadata = dict()
+                metadata['selected_precompute_k'] = selected_precompute_k
+                metadata['selected_precompute_n_grams'] = selected_precompute_n_grams
+
                 # reading and preprocessing the data
                 ids, sentences, token_lists = preprocess_documents(
                     destination,
@@ -106,14 +109,7 @@ def progress():
                         _ = get_embeddings(model_name=embedding, sentences=sentences,
                                            batch_size=100, dr=temp_data_folder)
 
-                    # get the selected values of k and also store inside the metadata file
 
-                    metadata['selected_precompute_k'] = selected_precompute_k
-
-                    # stop execution if none of the values are selected
-                    if len(selected_precompute_k) == 0:
-                        return render_template('precompute.html', success=success,
-                                               filename=upload.filename, message="Please Select atleast one value for clusters.")
                     for k in selected_precompute_k:
 
                         for base in base_models:
@@ -134,13 +130,6 @@ def progress():
                                 if vis_id == 3 and base == None:
                                     continue
 
-                                # get the values of the selected n_grams and store in the metadata
-                                metadata['selected_precompute_n_grams'] = selected_precompute_n_grams
-                                #stop execution if none of the values are selected
-                                if len(selected_precompute_n_grams) == 0:
-                                    return render_template('precompute.html', success=success,
-                                                           filename=upload.filename,
-                                                           message="Please Select atleast one value for n-grams.")
 
                                 for gram in selected_precompute_n_grams:
 
@@ -160,6 +149,7 @@ def progress():
                                                                    embedding_batch_size=100, use_AE=False,
                                                                    output_attention=False)
 
+                                    print (output_folder)
                                     # Fit the topic model
                                     TopicModelObject.fit(sentences, token_lists, vis_clusters=False)
 
@@ -192,7 +182,7 @@ def progress():
                                         vis = gs.prepare(TopicModelObject.basemodel, corpus, id2word)
                                         pyLDAvis.save_html(vis, os.path.join( output_folder, 'lda_vis.html'))
 
-                                    print("completed {} out of {} with progress {} %".format(completed_tasks, total_tasks,
+                            print("completed {} out of {} with progress {} %".format(completed_tasks, total_tasks,
                                                                                              progress))
 
                 # if the precompute process is a success, delete the previous data and replace it with the new one
